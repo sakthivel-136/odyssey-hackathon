@@ -25,7 +25,7 @@ export default function SchedulesPage() {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
+  async function fetchData() {
     setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;

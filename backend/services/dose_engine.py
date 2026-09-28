@@ -143,6 +143,29 @@ class DoseEngine:
         })
         logger.info(f"DoseEngine: Opening Compartment {comp_num} for Dose {dose_event_id}")
 
+    
+    def decrement_stock(self, step):
+        try:
+            supabase = get_supabase()
+            dose_qty = step.get("dose_quantity", 1)
+            med_id = step.get("medicine_id")
+            comp_id = step.get("compartment_id")
+            
+            if not med_id and comp_id:
+                mc = supabase.table("medicine_compartments").select("medicine_id").eq("compartment_id", comp_id).execute()
+                if mc.data:
+                    med_id = mc.data[0]["medicine_id"]
+                    
+            if med_id:
+                med_res = supabase.table("medicines").select("stock_quantity, name").eq("id", med_id).execute()
+                if med_res.data:
+                    curr_stock = med_res.data[0].get("stock_quantity") or 0
+                    new_stock = max(0, curr_stock - dose_qty)
+                    supabase.table("medicines").update({"stock_quantity": new_stock}).eq("id", med_id).execute()
+                    logger.info(f"💊 [STOCK DECREASED] {med_res.data[0].get('name')}: {curr_stock} -> {new_stock} (-{dose_qty})")
+        except Exception as e:
+            logger.error(f"Error decrementing stock: {e}")
+
     def on_ir_interaction(self, device_uuid, compartment_uuid):
         # Find active sequence
         for dose_id, seq in self.active_sequences.items():
@@ -151,6 +174,7 @@ class DoseEngine:
                 if step["compartment_id"] == compartment_uuid and seq["state"] == "WAITING_IR":
                     logger.info(f"DoseEngine: IR Interaction detected for Dose {dose_id}")
                     seq["state"] = "WAITING_CLOSE"
+                    self.decrement_stock(step)
                     
                     # Log to dose history that this step was taken
                     

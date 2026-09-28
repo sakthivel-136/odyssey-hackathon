@@ -42,6 +42,7 @@ from api.demo import router as demo_router
 from api.ai import router as ai_router
 from api.notifications import router as notifications_router
 from api.reports import router as reports_router
+from api.history import router as history_router
 
 app.include_router(devices_router)
 app.include_router(compartments_router)
@@ -51,6 +52,7 @@ app.include_router(demo_router, prefix="/api/demo", tags=["demo"])
 app.include_router(ai_router)
 app.include_router(notifications_router)
 app.include_router(reports_router)
+app.include_router(history_router)
 
 class DeviceCreateReq(BaseModel):
     device_name: str
