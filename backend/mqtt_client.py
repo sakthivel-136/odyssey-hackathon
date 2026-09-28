@@ -165,16 +165,18 @@ class MqttManager:
                     "raw_value": data
                 }).execute()
                 
-                # TWO-WAY COMMUNICATION: Update the physical compartment status in the DB
+                # TWO-WAY COMMUNICATION: Update DB when ESP32 reports lid is closed
+                # DOSE_MISSED: ESP32 already closed the lid itself - just update DB
+                # IR_TRIGGERED: Pill was taken - update DB AND advance dose engine to next compartment
                 if event_type in ["IR_TRIGGERED", "DOSE_MISSED"]:
-                    # The ESP32 closed the lid
                     supabase.table("compartments").update({
                         "servo_status": "CLOSED",
                         "ir_status": "CLEAR"
                     }).eq("id", comp_uuid).execute()
                     logger.info(f"Updated Compartment {compartment_num} to CLOSED on dashboard.")
 
-                
+                # ONLY advance dose sequence on IR_TRIGGERED (pill actually taken)
+                # NEVER on DOSE_MISSED - that would send CLOSE_LID back causing immediate close!
                 if event_type in ["IR_TRIGGERED", "IR_INTERACTION_DETECTED"]:
                     from services.dose_engine import dose_engine
                     dose_engine.on_ir_interaction(dev_uuid, comp_uuid)
