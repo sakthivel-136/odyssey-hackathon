@@ -174,7 +174,7 @@ class MqttManager:
                     logger.info(f"Updated Compartment {compartment_num} to CLOSED on dashboard.")
 
                 
-                if event_type == "IR_INTERACTION_DETECTED":
+                if event_type in ["IR_TRIGGERED", "IR_INTERACTION_DETECTED"]:
                     from services.dose_engine import dose_engine
                     dose_engine.on_ir_interaction(dev_uuid, comp_uuid)
                 
