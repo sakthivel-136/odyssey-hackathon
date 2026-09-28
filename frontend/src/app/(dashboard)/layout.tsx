@@ -22,6 +22,7 @@ const USER_NAV_ITEMS = [
 ];
 
 const ADMIN_NAV_ITEMS = [
+  { href: '/admin', label: 'Revenue Dashboard', icon: Activity },
   { href: '/admin/orders', label: 'View Orders', icon: PackageOpen },
   { href: '/admin/building', label: 'Building Process', icon: Wrench },
   { href: '/admin/history', label: 'Order History', icon: CheckCircle },
