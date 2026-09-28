@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Bell, ShieldAlert, Zap, Info } from 'lucide-react';
+import { Bell, ShieldAlert, CheckCircle2, Clock, AlertTriangle, Info, BellRing } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 type Notification = {
   id: string;
@@ -19,8 +20,12 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     async function fetchNotifications() {
+      setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        setLoading(false);
+        return;
+      }
       
       const { data } = await supabase
         .from('notifications')
@@ -31,7 +36,7 @@ export default function NotificationsPage() {
       if (data) setNotifications(data);
       setLoading(false);
       
-      // Mark as read
+      // Mark unread as read
       if (data && data.some(n => !n.is_read)) {
         await supabase
           .from('notifications')
@@ -44,49 +49,75 @@ export default function NotificationsPage() {
     fetchNotifications();
   }, []);
 
-  if (loading) return <div className="p-8">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <header>
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+    <div className="max-w-4xl mx-auto space-y-8 px-4 sm:px-0 pb-12">
+      <motion.header 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="pb-6 border-b border-slate-200"
+      >
+        <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
           <Bell className="w-8 h-8 text-blue-600" />
-          Notifications
+          System & Dose Notifications
         </h1>
-        <p className="text-slate-500 mt-1">Recent system alerts and messages.</p>
-      </header>
+        <p className="text-slate-500 mt-1 text-base">Real-time database alerts for schedule starts, missed doses, and inventory warnings.</p>
+      </motion.header>
 
       {notifications.length === 0 ? (
         <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center shadow-sm">
-          <h3 className="text-xl font-bold text-slate-800 mb-2">You're all caught up!</h3>
-          <p className="text-slate-500">You don't have any notifications right now.</p>
+          <BellRing className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <h3 className="text-xl font-bold text-slate-800 mb-1">All Caught Up!</h3>
+          <p className="text-slate-400 text-sm">No recent alerts or notifications in your account.</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {notifications.map(notif => {
-            const isAlert = notif.type === 'alert' || notif.type === 'error';
-            const isSuccess = notif.type === 'success';
-            
-            return (
-              <div 
-                key={notif.id}
-                className={`bg-white p-5 rounded-2xl border-l-4 shadow-sm flex gap-4 border-y border-r border-slate-200 ${
-                  isAlert ? 'border-l-amber-500' : isSuccess ? 'border-l-emerald-500' : 'border-l-blue-500'
-                } ${!notif.is_read ? 'bg-slate-50' : ''}`}
-              >
-                <div className={`p-3 rounded-full shrink-0 h-min ${
-                  isAlert ? 'bg-amber-50 text-amber-600' : isSuccess ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'
-                }`}>
-                  {isAlert ? <ShieldAlert className="w-5 h-5" /> : isSuccess ? <Zap className="w-5 h-5" /> : <Info className="w-5 h-5" />}
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900">{notif.title}</h3>
-                  <p className="text-sm text-slate-500 mt-1">{notif.message}</p>
-                  <p className="text-xs text-slate-400 mt-2">{new Date(notif.created_at).toLocaleString()}</p>
-                </div>
-              </div>
-            );
-          })}
+          <AnimatePresence>
+            {notifications.map((notif, idx) => {
+              const isError = notif.type === 'error' || notif.title.includes('MISSED');
+              const isWarning = notif.type === 'warning' || notif.title.includes('Warning') || notif.title.includes('Stock');
+              
+              const createdDate = new Date(notif.created_at);
+              const timeString = createdDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+              const dateString = createdDate.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' });
+
+              return (
+                <motion.div 
+                  key={notif.id}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ delay: idx * 0.05 }}
+                  className={`bg-white p-5 rounded-3xl border-l-4 shadow-sm flex items-start gap-4 border-y border-r border-slate-200 transition-all ${
+                    isError ? 'border-l-red-500' : isWarning ? 'border-l-amber-500' : 'border-l-blue-500'
+                  }`}
+                >
+                  <div className={`p-3 rounded-2xl shrink-0 h-min ${
+                    isError ? 'bg-red-50 text-red-600' : isWarning ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
+                  }`}>
+                    {isError ? <ShieldAlert className="w-6 h-6" /> : isWarning ? <AlertTriangle className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
+                  </div>
+
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="font-black text-slate-900 text-base">{notif.title}</h3>
+                      <span className="text-[11px] font-semibold text-slate-400 shrink-0">
+                        {dateString} at {timeString}
+                      </span>
+                    </div>
+                    <p className="text-slate-600 text-sm font-medium leading-relaxed">{notif.message}</p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         </div>
       )}
     </div>

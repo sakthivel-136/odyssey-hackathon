@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { BarChart as BarChartIcon, Activity, Wifi, Package, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { BarChart as BarChartIcon, Activity, AlertTriangle, CheckCircle2, Package } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { 
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer, Legend 
 } from 'recharts';
 
@@ -19,6 +19,13 @@ type ReportData = {
   inventory_status: { id: string; name: string; strength: string; stock_quantity: number; low_stock_threshold: number; is_low: boolean }[];
   uptime: number;
 };
+
+// Helper function: Calculates nearby round max (e.g., 68 -> 70, 59 -> 60, 8 -> 10)
+function getNearbyRoundMax(stock: number): number {
+  if (stock <= 0) return 10;
+  const ceilTen = Math.ceil(stock / 10) * 10;
+  return ceilTen === stock ? ceilTen + 10 : ceilTen;
+}
 
 export default function ReportsPage() {
   const [data, setData] = useState<ReportData>({
@@ -208,44 +215,51 @@ export default function ReportsPage() {
       {/* Real-time Inventory & Stock Levels */}
       <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
         <h2 className="text-lg font-black text-slate-900 mb-1">Medicine Stock Inventory Monitor</h2>
-        <p className="text-xs text-slate-500 mb-6">Real-time remaining tablet count vs low stock threshold</p>
+        <p className="text-xs text-slate-500 mb-6">Real-time remaining tablet count vs rounded upper max stock</p>
 
         {(!data.inventory_status || data.inventory_status.length === 0) ? (
           <p className="text-slate-400 text-center py-6 text-sm">No medicines registered in inventory.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {data.inventory_status.map((item) => (
-              <div key={item.id} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col justify-between">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h4 className="font-extrabold text-slate-900 text-base">{item.name}</h4>
-                    <p className="text-xs text-slate-500 font-semibold">{item.strength || 'Standard Dose'}</p>
-                  </div>
-                  {item.is_low ? (
-                    <span className="bg-red-100 text-red-700 text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" /> Low Stock
-                    </span>
-                  ) : (
-                    <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-wider">
-                      Stock OK
-                    </span>
-                  )}
-                </div>
+            {data.inventory_status.map((item) => {
+              const maxStock = getNearbyRoundMax(item.stock_quantity);
+              const percentage = Math.min(100, Math.round((item.stock_quantity / maxStock) * 100));
 
-                <div className="mt-4">
-                  <div className="flex justify-between items-center text-xs font-bold text-slate-700 mb-1.5">
-                    <span>Remaining Stock</span>
-                    <span className={item.is_low ? 'text-red-600 font-black' : 'text-slate-900'}>{item.stock_quantity} / {item.low_stock_threshold + 20}</span>
+              return (
+                <div key={item.id} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col justify-between">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="font-extrabold text-slate-900 text-base">{item.name}</h4>
+                      <p className="text-xs text-slate-500 font-semibold">{item.strength || 'Standard Dose'}</p>
+                    </div>
+                    {item.is_low ? (
+                      <span className="bg-red-100 text-red-700 text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" /> Low Stock
+                      </span>
+                    ) : (
+                      <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-wider">
+                        Stock OK
+                      </span>
+                    )}
                   </div>
-                  <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full rounded-full transition-all ${item.is_low ? 'bg-red-500' : 'bg-emerald-500'}`}
-                      style={{ width: `${Math.min(100, (item.stock_quantity / (item.low_stock_threshold + 20)) * 100)}%` }}
-                    />
+
+                  <div className="mt-4">
+                    <div className="flex justify-between items-center text-xs font-bold text-slate-700 mb-1.5">
+                      <span>Current Stock</span>
+                      <span className={item.is_low ? 'text-red-600 font-black' : 'text-slate-900'}>
+                        {item.stock_quantity} / {maxStock}
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all ${item.is_low ? 'bg-red-500' : 'bg-emerald-500'}`}
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
