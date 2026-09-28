@@ -43,13 +43,39 @@ def pair_device(req: PairDeviceReq, user = Depends(get_current_user)):
     
     return {"message": "Device paired successfully"}
 
+
 @router.get("")
 def list_devices(user = Depends(get_current_user)):
     supabase = get_supabase()
     
     # Get user's devices directly via owner_id
     devices_res = supabase.table("devices").select("*").eq("owner_id", user.id).execute()
-    return devices_res.data
+    devices = devices_res.data
+    
+    import datetime
+    from datetime import timezone
+    
+    for d in devices:
+        last_seen = d.get("last_seen")
+        if last_seen:
+            # Parse last_seen (assuming ISO format from postgres)
+            try:
+                # Handle 'Z' or offset
+                last_seen_dt = datetime.datetime.fromisoformat(last_seen.replace('Z', '+00:00'))
+                now_dt = datetime.datetime.now(timezone.utc)
+                diff = (now_dt - last_seen_dt).total_seconds()
+                
+                if diff <= 60:
+                    d["device_status"] = "ONLINE"
+                else:
+                    d["device_status"] = "OFFLINE"
+            except Exception as e:
+                d["device_status"] = "OFFLINE"
+        else:
+            d["device_status"] = "OFFLINE"
+            
+    return devices
+
 
 @router.post("/{device_id}/unpair")
 def unpair_device(device_id: str, user = Depends(get_current_user)):
