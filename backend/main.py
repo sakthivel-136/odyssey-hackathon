@@ -23,6 +23,8 @@ async def lifespan(app: FastAPI):
     mqtt_manager.stop()
 
 app = FastAPI(title="Smart Medibox API", lifespan=lifespan)
+from test_twilio_route import router as twilio_router
+app.include_router(twilio_router)
 
 app.add_middleware(
     CORSMiddleware,
