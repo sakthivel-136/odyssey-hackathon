@@ -108,7 +108,7 @@ export default function OrdersPage() {
           <div className="absolute top-0 right-0 p-6 opacity-20"><Shield className="w-16 h-16 text-slate-500" /></div>
           <h3 className="text-2xl font-black text-slate-900 mb-2">Basic</h3>
           <div className="flex items-baseline gap-1 mb-6">
-            <span className="text-4xl font-black text-blue-600">₹4,500</span>
+            <span className="text-4xl font-black text-blue-600">₹3,000</span>
             <span className="text-slate-500 font-medium">One-Time</span>
           </div>
           <ul className="space-y-4 mb-8 text-slate-600 font-medium">
@@ -128,7 +128,7 @@ export default function OrdersPage() {
           <div className="absolute top-0 right-0 p-6 opacity-20"><Zap className="w-16 h-16 text-blue-500" /></div>
           <h3 className="text-2xl font-black text-slate-900 mb-2">Pro</h3>
           <div className="flex items-baseline gap-1 mb-6">
-            <span className="text-4xl font-black text-blue-600">₹5,000</span>
+            <span className="text-4xl font-black text-blue-600">₹4,000</span>
             <span className="text-slate-500 font-medium">One-Time</span>
           </div>
           <ul className="space-y-4 mb-8 text-slate-600 font-medium">
@@ -147,7 +147,7 @@ export default function OrdersPage() {
           <div className="absolute top-0 right-0 p-6 opacity-20"><Crown className="w-16 h-16 text-purple-400" /></div>
           <h3 className="text-2xl font-black text-white mb-2">Ultra</h3>
           <div className="flex items-baseline gap-1 mb-6">
-            <span className="text-4xl font-black text-purple-400">₹7,000</span>
+            <span className="text-4xl font-black text-purple-400">₹4,500</span>
             <span className="text-slate-400 font-medium">One-Time</span>
           </div>
           <ul className="space-y-4 mb-8 text-slate-300 font-medium">
@@ -190,7 +190,7 @@ export default function OrdersPage() {
             </div>
 
             <button disabled={submitting} type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
-              <PackageOpen className="w-6 h-6" /> {submitting ? 'Processing Payment...' : `Purchase Hardware (₹${selectedPlan === 'Ultra' ? '7,000' : selectedPlan === 'Pro' ? '5,000' : '4,500'})${premiumAddon ? ' + Software Add-on (₹150/mo)' : ''}`}
+              <PackageOpen className="w-6 h-6" /> {submitting ? 'Processing Payment...' : `Purchase Hardware (₹${selectedPlan === 'Ultra' ? '4,500' : selectedPlan === 'Pro' ? '4,000' : '3,000'})${premiumAddon ? ' + Software Add-on (₹150/mo)' : ''}`}
             </button>
           </form>
         </motion.div>

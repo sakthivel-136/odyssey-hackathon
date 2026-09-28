@@ -44,9 +44,9 @@ export default function AdminSaaSDashboard() {
   
   const calculateHardwareSales = (orderList: any[]) => {
     return orderList.reduce((acc, order) => {
-      if (order.num_containers === 1 || order.num_containers === 11) return acc + 4500;
-      if (order.num_containers === 6 || order.num_containers === 16) return acc + 7000;
-      return acc + 5000; // Pro is default fallback
+      if (order.num_containers === 1 || order.num_containers === 11) return acc + 3000;
+      if (order.num_containers === 6 || order.num_containers === 16) return acc + 4500;
+      return acc + 4000; // Pro is default fallback
     }, 0);
   };
 
@@ -145,7 +145,7 @@ export default function AdminSaaSDashboard() {
             <tbody className="divide-y divide-slate-100">
               {orders.map(order => {
                 const plan = order.num_containers === 1 ? 'Basic' : order.num_containers === 11 ? 'Basic+AI' : order.num_containers === 6 ? 'Ultra' : order.num_containers === 16 ? 'Ultra+AI' : order.num_containers === 13 ? 'Pro+AI' : 'Pro';
-                const hwPrice = plan.includes('Basic') ? 4500 : plan.includes('Ultra') ? 7000 : 5000; const hasAddon = plan.includes('+AI');
+                const hwPrice = plan.includes('Basic') ? 3000 : plan.includes('Ultra') ? 4500 : 4000; const hasAddon = plan.includes('+AI');
                 
                 return (
                   <tr key={order.id} className="hover:bg-slate-50 transition">
