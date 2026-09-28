@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: medibox-backend
+    env: python
+    region: singapore # or oregon
+    buildCommand: "cd backend && pip install -r requirements.txt"
+    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: SUPABASE_URL
+        sync: false # User must set in dashboard
+      - key: SUPABASE_SERVICE_KEY
+        sync: false # User must set in dashboard
+      - key: SUPABASE_ANON_KEY
+        sync: false # User must set in dashboard
+      - key: MQTT_BROKER
+        value: "broker.hivemq.com"
+      - key: MQTT_PORT
+        value: "1883"

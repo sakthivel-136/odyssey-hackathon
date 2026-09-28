@@ -1,0 +1,28 @@
+# Node
+node_modules/
+.npm/
+.next/
+dist/
+build/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+env/
+.env
+
+# MacOS
+.DS_Store
+
+# IDEs
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Sensitive
+.env.local
+.env.development
+.env.production
