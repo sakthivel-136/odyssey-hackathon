@@ -123,23 +123,29 @@ export function PermissionModal() {
           <div className="space-y-4">
             {/* 1. Push Notifications Permission Card */}
             {notifState === 'default' && (
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+              <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-indigo-100 text-indigo-600 rounded-xl">
-                      <Bell className="w-5 h-5" />
-                    </div>
+                    <motion.div 
+                      animate={{ rotate: [-12, 12, -8, 8, 0] }}
+                      transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
+                      className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl shadow-sm"
+                    >
+                      <Bell className="w-5 h-5 text-indigo-600" />
+                    </motion.div>
                     <div>
                       <h4 className="font-bold text-slate-900 text-sm">Push Notifications</h4>
                       <p className="text-xs text-slate-500">Get alerts when schedule starts or doses are missed.</p>
                     </div>
                   </div>
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={handleRequestNotification}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition shadow-sm shrink-0"
+                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition shadow-md shadow-indigo-500/20 shrink-0 cursor-pointer"
                   >
                     Allow Alerts
-                  </button>
+                  </motion.button>
                 </div>
 
                 <label className="flex items-center gap-2 pt-1 border-t border-slate-200/60 cursor-pointer">
@@ -155,31 +161,41 @@ export function PermissionModal() {
             )}
 
             {notifState === 'granted' && (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center gap-3 text-emerald-800 text-xs font-bold">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center gap-3 text-emerald-800 text-xs font-bold shadow-sm"
+              >
                 <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                 <span>Push Notifications Allowed! You will receive live alerts.</span>
-              </div>
+              </motion.div>
             )}
 
             {/* 2. Camera Access Permission Card */}
             {cameraState === 'default' && (
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+              <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-purple-100 text-purple-600 rounded-xl">
-                      <Camera className="w-5 h-5" />
-                    </div>
+                    <motion.div 
+                      animate={{ scale: [1, 1.15, 1] }}
+                      transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+                      className="p-3 bg-purple-100 text-purple-600 rounded-2xl shadow-sm"
+                    >
+                      <Camera className="w-5 h-5 text-purple-600" />
+                    </motion.div>
                     <div>
                       <h4 className="font-bold text-slate-900 text-sm">Camera Access (QR Pairing)</h4>
                       <p className="text-xs text-slate-500">Scan physical QR codes on your Medibox hardware.</p>
                     </div>
                   </div>
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={handleRequestCamera}
-                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl transition shadow-sm shrink-0"
+                    className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl transition shadow-md shadow-purple-500/20 shrink-0 cursor-pointer"
                   >
                     Allow Camera
-                  </button>
+                  </motion.button>
                 </div>
 
                 <label className="flex items-center gap-2 pt-1 border-t border-slate-200/60 cursor-pointer">

@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase';
 import { Clock, CheckCircle2, AlertCircle, Info, Filter, Search, Pill, ShieldCheck, PhoneCall } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { TimelineSkeleton, EmptyState, SPRING_SNAPPY, SPRING_GENTLE } from '@/components/ui/motion';
+
 type HistoryEvent = {
   id: string;
   event_date: string;
@@ -69,8 +71,9 @@ export default function HistoryPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent"></div>
+      <div className="max-w-5xl mx-auto space-y-8 px-4 sm:px-0 pb-12">
+        <div className="h-10 w-64 bg-slate-200 rounded-2xl animate-pulse" />
+        <TimelineSkeleton />
       </div>
     );
   }
@@ -137,11 +140,13 @@ export default function HistoryPage() {
         <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-slate-200 hidden sm:block"></div>
 
         {filteredEvents.length === 0 ? (
-          <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center shadow-sm">
-            <Pill className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <h3 className="text-lg font-bold text-slate-800 mb-1">No Events Found</h3>
-            <p className="text-slate-400 text-sm">No dose events match your current filter criteria.</p>
-          </div>
+          <EmptyState
+            type="history"
+            title="No Dose Events Found"
+            description="No medication events match your current filter or search criteria."
+            actionLabel="Reset Filter"
+            onAction={() => { setFilterStatus('ALL'); setSearchQuery(''); }}
+          />
         ) : (
           <div className="space-y-6">
             <AnimatePresence>
@@ -155,16 +160,29 @@ export default function HistoryPage() {
                 return (
                   <motion.div 
                     key={event.id}
-                    initial={{ opacity: 0, x: -20 }}
+                    initial={{ opacity: 0, x: -15 }}
                     animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="relative flex items-start gap-6 group"
+                    exit={{ opacity: 0, x: 15 }}
+                    whileHover={{ y: -2 }}
+                    transition={{ delay: index * 0.04 }}
+                    className="relative flex items-start gap-4 sm:gap-6 group"
                   >
-                    {/* Status Circle */}
-                    <div className="hidden sm:flex relative z-10 w-16 h-16 rounded-full bg-white border-4 border-slate-50 items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                    {/* Status Circle with optional pulse/burst */}
+                    <div className={`hidden sm:flex relative z-10 w-16 h-16 rounded-full border-4 border-white items-center justify-center shrink-0 shadow-sm transition-transform group-hover:scale-105 ${
+                      isCompleted 
+                        ? 'bg-emerald-50 text-emerald-600 ring-2 ring-emerald-400/20' 
+                        : isMissed 
+                        ? 'bg-red-50 text-red-600 ring-2 ring-red-400/20' 
+                        : 'bg-amber-50 text-amber-600'
+                    }`}>
                       {isCompleted ? (
-                        <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                        <motion.div
+                          initial={{ scale: 0.6 }}
+                          animate={{ scale: 1 }}
+                          transition={SPRING_SNAPPY}
+                        >
+                          <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                        </motion.div>
                       ) : isMissed ? (
                         <AlertCircle className="w-8 h-8 text-red-500" />
                       ) : (
@@ -172,8 +190,14 @@ export default function HistoryPage() {
                       )}
                     </div>
                     
-                    {/* Event Card */}
-                    <div className="flex-1 bg-white rounded-3xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow">
+                    {/* Event Card with Glassmorphism and Status Accent */}
+                    <div className={`flex-1 bg-white/85 backdrop-blur-md rounded-3xl border shadow-sm p-6 hover:shadow-md transition-all ${
+                      isMissed 
+                        ? 'border-l-4 border-l-red-500 border-slate-200/80' 
+                        : isCompleted 
+                        ? 'border-l-4 border-l-emerald-500 border-slate-200/80' 
+                        : 'border-l-4 border-l-blue-500 border-slate-200/80'
+                    }`}>
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                         <div>
                           <div className="flex items-center gap-2">
@@ -198,7 +222,7 @@ export default function HistoryPage() {
                             isCompleted 
                               ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
                               : isMissed 
-                              ? 'bg-red-100 text-red-800 border border-red-200' 
+                              ? 'bg-red-100 text-red-800 border border-red-200 animate-pulse' 
                               : 'bg-amber-100 text-amber-800 border border-amber-200'
                           }`}>
                             {isCompleted ? '✓ TAKEN & VERIFIED' : isMissed ? '✕ DOSE MISSED' : '⌛ IN PROGRESS'}
@@ -208,7 +232,7 @@ export default function HistoryPage() {
 
                       {/* Detailed Footer Info */}
                       <div className={`rounded-2xl p-4 flex items-start gap-3 text-xs font-medium ${
-                        isCompleted ? 'bg-emerald-50 text-emerald-900 border border-emerald-100' : 'bg-red-50 text-red-900 border border-red-100'
+                        isCompleted ? 'bg-emerald-50/80 text-emerald-900 border border-emerald-100' : 'bg-red-50/80 text-red-900 border border-red-100'
                       }`}>
                         {isCompleted ? (
                           <>
@@ -222,8 +246,8 @@ export default function HistoryPage() {
                           <>
                             <PhoneCall className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
                             <div>
-                              <p className="font-bold text-red-950">30s Missed Alert & Twilio Call Triggered</p>
-                              <p className="text-red-700 mt-0.5">Lid was not accessed within 30 seconds. Twilio emergency voice call was dispatched to patient's phone and lid locked at 60s.</p>
+                              <p className="font-bold text-red-950">Missed Alert & Twilio Call Triggered</p>
+                              <p className="text-red-700 mt-0.5">Lid was not accessed within schedule window. Twilio emergency voice call was dispatched to patient's phone.</p>
                             </div>
                           </>
                         )}

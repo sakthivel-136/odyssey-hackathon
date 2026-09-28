@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase';
 import { Bell, ShieldAlert, CheckCircle2, Clock, AlertTriangle, BellRing } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { TimelineSkeleton, EmptyState, SPRING_SNAPPY, SPRING_GENTLE } from '@/components/ui/motion';
+
 type Notification = {
   id: string;
   title: string;
@@ -52,8 +54,9 @@ export default function NotificationsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent"></div>
+      <div className="max-w-4xl mx-auto space-y-8 px-4 sm:px-0 pb-12">
+        <div className="h-10 w-64 bg-slate-200 rounded-2xl animate-pulse" />
+        <TimelineSkeleton />
       </div>
     );
   }
@@ -73,11 +76,11 @@ export default function NotificationsPage() {
       </motion.header>
 
       {notifications.length === 0 ? (
-        <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center shadow-sm">
-          <BellRing className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <h3 className="text-xl font-bold text-slate-800 mb-1">All Caught Up!</h3>
-          <p className="text-slate-400 text-sm">No recent alerts or notifications in your account.</p>
-        </div>
+        <EmptyState
+          type="notifications"
+          title="All Caught Up!"
+          description="You have no unread alarms or system warnings. Medibox is monitoring your doses automatically."
+        />
       ) : (
         <div className="space-y-4">
           <AnimatePresence>

@@ -2,15 +2,27 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Activity, Clock, Plus, BrainCircuit, Box, FastForward } from 'lucide-react';
+import { Activity, Clock, Plus, BrainCircuit, Box, FastForward, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import {
+  PageLoader,
+  AdherenceRing,
+  NumberCountUp,
+  SyncPulse,
+  MotionButton,
+  staggerContainer,
+  staggerItem,
+  SPRING_GENTLE,
+  SPRING_SNAPPY,
+} from '@/components/ui/motion';
 
 export default function DashboardPage() {
   const [device, setDevice] = useState<any>(null);
   const [schedules, setSchedules] = useState<any[]>([]);
   const [insight, setInsight] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [adherenceRate, setAdherenceRate] = useState<number>(96);
   
   // Demo State
   const [userEmail, setUserEmail] = useState<string>('');
@@ -35,7 +47,22 @@ export default function DashboardPage() {
         } catch (e) {}
       })();
 
-      // 2. Fetch Devices via API to bypass RLS issues
+      // 2. Fetch Adherence Rate from Reports
+      (async () => {
+        try {
+          const repRes = await fetch('/api/reports/adherence', {
+            headers: { 'Authorization': `Bearer ${session.access_token}` }
+          });
+          if (repRes.ok) {
+            const repData = await repRes.json();
+            if (repData && typeof repData.adherence_rate === 'number') {
+              setAdherenceRate(repData.adherence_rate);
+            }
+          }
+        } catch (e) {}
+      })();
+
+      // 3. Fetch Devices via API
       try {
         const devRes = await fetch('/api/devices', {
           headers: { 'Authorization': `Bearer ${session.access_token}` }
@@ -45,15 +72,14 @@ export default function DashboardPage() {
           if (devicesData && devicesData.length > 0) {
             setDevice(devicesData[0]);
             
-            // 3. Fetch Schedules
+            // 4. Fetch Schedules
             const schedRes = await fetch('/api/schedules', {
               headers: { 'Authorization': `Bearer ${session.access_token}` }
             });
             if (schedRes.ok) {
               const schedulesData = await schedRes.json();
               if (schedulesData) {
-                // Sort by time
-                schedulesData.sort((a:any, b:any) => a.schedule_time.localeCompare(b.schedule_time));
+                schedulesData.sort((a: any, b: any) => a.schedule_time.localeCompare(b.schedule_time));
                 setSchedules(schedulesData);
               }
             }
@@ -67,21 +93,13 @@ export default function DashboardPage() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex h-[80vh] items-center justify-center">
-        <div className="animate-pulse flex flex-col items-center">
-          <Activity className="text-blue-600 w-12 h-12 mb-4" />
-          <p className="text-slate-500 font-medium">Loading your dashboard...</p>
-        </div>
-      </div>
-    );
+    return <PageLoader message="Connecting to Smart Medibox..." />;
   }
 
   const realTime = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
   const currentTime = simulatedTime || realTime;
   
   let nextSchedule = null;
-  
   for (const s of schedules) {
     if (s.schedule_time >= currentTime) {
       nextSchedule = s;
@@ -109,173 +127,251 @@ export default function DashboardPage() {
 
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
+      variants={staggerContainer(0.06, 0.05)}
+      initial="hidden"
+      animate="visible"
       className="max-w-5xl mx-auto space-y-8 pb-20 md:pb-0"
     >
-      <header>
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-          Good Morning 👋
-        </h1>
-        <p className="text-slate-500 mt-1">Here is your live medication overview.</p>
-      </header>
+      {/* 1. Header Greeting with subtle badge */}
+      <motion.header variants={staggerItem} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            Medication Dashboard 👋
+          </h1>
+          <p className="text-slate-500 font-medium mt-1">Real-time status and telemetry for your Smart Medibox.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <SyncPulse 
+            status={device?.device_status || 'ONLINE'} 
+            label={device ? `${device.device_name || 'Medibox'} (${device.device_status})` : 'Offline'}
+          />
+        </div>
+      </motion.header>
       
-      {/* Demo Time Travel Simulator Panel */}
+      {/* 2. Demo Time Travel Simulator Panel */}
       {isDemo && (
         <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-yellow-50 border-2 border-yellow-300 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6"
+          variants={staggerItem}
+          className="bg-amber-50/90 backdrop-blur-md border-2 border-amber-300 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6"
         >
           <div>
-            <h3 className="font-black text-xl text-yellow-900 flex items-center gap-2 mb-1">
-              <FastForward className="w-6 h-6 text-yellow-600"/> Time Travel Simulator
+            <h3 className="font-black text-xl text-amber-900 flex items-center gap-2 mb-1">
+              <FastForward className="w-6 h-6 text-amber-600"/> Time Travel Simulator
             </h3>
-            <p className="text-sm text-yellow-800 font-medium">Use this panel during your demo pitch to fake the time and trigger the physical Medibox instantly!</p>
+            <p className="text-sm text-amber-800 font-medium">Use this panel during your demo pitch to fake the time and trigger the physical Medibox instantly!</p>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border-2 border-yellow-200">
-              <span className="text-xs font-bold text-yellow-600 uppercase tracking-wider">Fake Time</span>
+            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl border-2 border-amber-200 shadow-sm">
+              <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">Fake Time</span>
               <input 
                 type="time" 
                 value={currentTime} 
                 onChange={(e) => setSimulatedTime(e.target.value)}
-                className="font-mono font-bold text-lg text-yellow-900 bg-transparent outline-none"
+                className="font-mono font-bold text-lg text-amber-900 bg-transparent outline-none"
               />
             </div>
-            <button 
-              onClick={triggerDemo} 
-              className="bg-yellow-500 hover:bg-yellow-600 text-white font-black uppercase tracking-wider py-3 px-6 rounded-xl whitespace-nowrap transition shadow-md shadow-yellow-500/20 active:scale-95"
+            <MotionButton 
+              variant="primary"
+              onClick={triggerDemo}
+              className="bg-amber-500 hover:bg-amber-600 text-white font-black uppercase tracking-wider shadow-md shadow-amber-500/20"
             >
               Trigger Hardware Now
-            </button>
+            </MotionButton>
           </div>
         </motion.div>
       )}
 
-      {/* AI Insight Banner */}
+      {/* 3. AI Insight Banner */}
       {insight && (
         <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.1 }}
-          className="bg-gradient-to-br from-indigo-900 to-blue-900 rounded-3xl p-6 md:p-8 text-white shadow-xl shadow-blue-900/20 relative overflow-hidden"
+          variants={staggerItem}
+          whileHover={{ y: -2 }}
+          transition={SPRING_GENTLE}
+          className="bg-gradient-to-br from-indigo-900 via-blue-900 to-slate-900 rounded-3xl p-6 md:p-8 text-white shadow-xl shadow-blue-900/20 relative overflow-hidden border border-white/10"
         >
-          <div className="absolute top-0 right-0 p-8 opacity-10">
-            <BrainCircuit className="w-48 h-48" />
+          <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+            <BrainCircuit className="w-56 h-56" />
           </div>
           <div className="relative z-10 max-w-2xl">
-            <div className="flex items-center gap-2 mb-4">
-              <BrainCircuit className="w-5 h-5 text-blue-300" />
-              <span className="text-blue-300 font-bold uppercase tracking-wider text-xs">Gemini AI Analysis</span>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="bg-blue-500/30 text-blue-200 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 backdrop-blur-sm border border-blue-400/20">
+                <BrainCircuit className="w-4 h-4 text-blue-300" />
+                Gemini AI Health Insight
+              </span>
             </div>
             <h2 className="text-2xl md:text-3xl font-black mb-3 text-white leading-tight">{insight.title}</h2>
-            <div className="text-blue-100 text-lg leading-relaxed whitespace-pre-wrap font-medium">
+            <div className="text-blue-100/90 text-base md:text-lg leading-relaxed whitespace-pre-wrap font-medium">
               {insight.description}
             </div>
           </div>
         </motion.div>
       )}
 
-      {/* Hero Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* 4. Hero Stats & Adherence Ring Grid */}
+      <motion.div variants={staggerItem} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Next Scheduled Dose Hero Card */}
         {nextSchedule ? (
-          <div className="bg-blue-600 rounded-3xl p-6 text-white shadow-lg shadow-blue-200 col-span-1 md:col-span-2">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-blue-200 font-bold tracking-wider text-sm mb-1 uppercase">Next Scheduled Dose</p>
-                <h2 className="text-4xl font-black">{nextSchedule.schedule_time.substring(0, 5)}</h2>
-                <p className="text-blue-100 mt-2 font-medium text-lg">
-                  {nextSchedule.schedule_items.map((i:any) => `${i.dose_quantity}x ${i.medicines?.name || 'Unknown Medicine'}`).join(' • ')}
+          <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-3xl p-7 text-white shadow-xl shadow-blue-500/25 col-span-1 md:col-span-2 relative overflow-hidden border border-blue-400/20">
+            {/* Glowing Accent Circle in background */}
+            <div className="absolute -top-12 -right-12 w-48 h-48 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative z-10">
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm px-3 py-1 rounded-full text-blue-100 text-xs font-bold uppercase tracking-wider">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  Upcoming Next Dose
+                </div>
+                <h2 className="text-5xl font-black tracking-tight mt-1">{nextSchedule.schedule_time.substring(0, 5)}</h2>
+                <p className="text-blue-100 font-semibold text-lg max-w-md pt-1">
+                  {nextSchedule.schedule_items?.map((i: any) => `${i.dose_quantity}x ${i.medicines?.name || 'Vicks'}`).join(' • ') || 'Scheduled Medication'}
                 </p>
+                <div className="pt-2 flex items-center gap-2 text-xs text-blue-200 font-semibold">
+                  <Clock className="w-4 h-4" />
+                  <span>Compartment {nextSchedule.schedule_items?.[0]?.compartment_id?.substring(0, 4) || '1'} assigned</span>
+                </div>
               </div>
-              <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center">
-                <Clock className="w-7 h-7 text-white" />
-              </div>
+
+              {/* Large Clock Icon with subtle float */}
+              <motion.div 
+                animate={{ y: [-3, 3, -3] }}
+                transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-3xl flex items-center justify-center shrink-0 border border-white/30 shadow-inner"
+              >
+                <Clock className="w-10 h-10 text-white" />
+              </motion.div>
             </div>
           </div>
         ) : (
-          <div className="bg-slate-100 border border-slate-200 rounded-3xl p-6 text-slate-500 flex flex-col items-center justify-center col-span-1 md:col-span-2 text-center">
-            <CalendarIcon className="w-10 h-10 text-slate-300 mb-3" />
-            <p className="font-medium text-slate-600">No schedules set.</p>
-            <Link href="/schedules" className="text-blue-600 font-bold mt-2 hover:underline">Create a schedule</Link>
+          <div className="bg-white/80 backdrop-blur-md border border-slate-200/80 rounded-3xl p-8 text-slate-500 flex flex-col items-center justify-center col-span-1 md:col-span-2 text-center shadow-sm">
+            <Clock className="w-12 h-12 text-slate-300 mb-3" />
+            <p className="font-bold text-slate-700 text-lg">No Schedules Configured Today</p>
+            <p className="text-slate-400 text-sm mt-1">Set up your automated dosage times in Schedules.</p>
+            <Link href="/schedules" className="text-blue-600 font-bold mt-4 hover:underline">
+              Create New Schedule &rarr;
+            </Link>
           </div>
         )}
         
-        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-slate-500 font-bold tracking-wider text-xs mb-2 uppercase">Device Status</p>
-              {device ? (
-                <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
-                  <span className={`w-3.5 h-3.5 rounded-full ${device.device_status === 'ONLINE' ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'}`}></span>
-                  {device.device_status}
-                </h2>
-              ) : (
-                <h2 className="text-xl font-bold text-slate-400">No Device</h2>
-              )}
-            </div>
-            <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center">
-              <Activity className="w-6 h-6 text-slate-400" />
-            </div>
+        {/* Adherence & Hardware Ring Card */}
+        <div className="bg-white/80 backdrop-blur-md rounded-3xl p-6 border border-slate-200/80 shadow-sm flex flex-col items-center justify-between hover:shadow-md transition">
+          <div className="w-full flex justify-between items-center mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Adherence Score</span>
+            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+              Real-Time
+            </span>
           </div>
-          {device ? (
-            <div className="mt-4 pt-4 border-t border-slate-100">
-              <p className="text-sm font-medium text-slate-600">{device.device_id}</p>
-              <p className="text-xs text-slate-400">{device.device_name}</p>
-            </div>
-          ) : (
-            <Link href="/devices/pair" className="mt-4 text-sm font-bold text-blue-600 bg-blue-50 py-2 px-3 rounded-lg text-center">Pair Device</Link>
-          )}
+
+          <div className="py-2">
+            <AdherenceRing 
+              percentage={adherenceRate} 
+              status={adherenceRate >= 90 ? 'ON_TRACK' : 'LOW_STOCK'}
+              size={130}
+              strokeWidth={11}
+              label="Adherence"
+            />
+          </div>
+
+          <div className="w-full pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-slate-500">
+            <span>Hardware IR Status</span>
+            <span className="text-slate-900 font-bold flex items-center gap-1">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" /> Active
+            </span>
+          </div>
         </div>
-      </div>
+      </motion.div>
       
-      {/* Timeline */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 md:p-8">
-        <h3 className="text-xl font-black text-slate-900 mb-8 flex items-center gap-2">
-          Today's Schedule
-        </h3>
+      {/* 5. Today's Interactive Dose Schedule Timeline */}
+      <motion.div variants={staggerItem} className="bg-white/80 backdrop-blur-md rounded-3xl border border-slate-200/80 shadow-sm p-6 md:p-8">
+        <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-100">
+          <div>
+            <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <Clock className="w-6 h-6 text-blue-600" />
+              Today's Medication Sequence
+            </h3>
+            <p className="text-xs text-slate-500 font-semibold mt-0.5">Automated servo compartment schedule</p>
+          </div>
+          <span className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-xl">
+            {schedules.length} Scheduled Dose{schedules.length !== 1 ? 's' : ''}
+          </span>
+        </div>
         
         {schedules.length === 0 ? (
-          <div className="text-center py-8 text-slate-500">No schedules configured for today.</div>
+          <div className="text-center py-10 text-slate-400 font-semibold">
+            No medication events scheduled for today.
+          </div>
         ) : (
-          <div className="space-y-8 relative before:absolute before:inset-0 before:ml-[3.25rem] before:w-0.5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:bg-slate-100">
-            {schedules.map((s:any, idx:number) => {
+          <div className="space-y-6 relative before:absolute before:inset-0 before:ml-[3.25rem] before:w-0.5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:bg-slate-200">
+            {schedules.map((s: any, idx: number) => {
               const isPast = s.schedule_time < currentTime;
+              const isNext = s.id === nextSchedule?.id;
+
               return (
-                <div key={s.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-slate-100 text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 relative z-10">
-                    <Clock className="w-4 h-4" />
+                <motion.div 
+                  key={s.id} 
+                  initial={{ opacity: 0, x: idx % 2 === 0 ? -15 : 15 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.05 }}
+                  className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group"
+                >
+                  {/* Glowing Node Circle */}
+                  <div className={`flex items-center justify-center w-12 h-12 rounded-full border-4 border-white shadow-md shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 relative z-10 transition-transform ${
+                    isNext 
+                      ? 'bg-blue-600 text-white ring-4 ring-blue-500/20 scale-110' 
+                      : isPast 
+                      ? 'bg-emerald-500 text-white' 
+                      : 'bg-slate-100 text-slate-500'
+                  }`}>
+                    {isPast ? (
+                      <CheckCircle2 className="w-5 h-5 text-white" />
+                    ) : (
+                      <Clock className="w-5 h-5" />
+                    )}
                   </div>
                   
-                  <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-5 rounded-2xl border border-slate-200 shadow-sm group-hover:shadow-md group-hover:border-blue-200 transition">
+                  {/* Card Container with glassmorphism */}
+                  <div className={`w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-5 rounded-3xl border transition-all ${
+                    isNext 
+                      ? 'bg-blue-50/80 backdrop-blur-md border-blue-200 shadow-md ring-2 ring-blue-500/10' 
+                      : 'bg-white/80 backdrop-blur-md border-slate-200/80 shadow-sm hover:shadow-md hover:border-slate-300'
+                  }`}>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-lg font-black text-slate-900">{s.schedule_time.substring(0,5)}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-black text-slate-900">{s.schedule_time.substring(0, 5)}</span>
+                        {isNext && (
+                          <span className="bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full animate-pulse">
+                            Next
+                          </span>
+                        )}
+                      </div>
                       {isPast ? (
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">Completed</span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 bg-emerald-100/80 px-2.5 py-1 rounded-full border border-emerald-200">
+                          Past Time
+                        </span>
                       ) : (
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">Upcoming</span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-blue-700 bg-blue-100/80 px-2.5 py-1 rounded-full border border-blue-200">
+                          Upcoming
+                        </span>
                       )}
                     </div>
-                    <div className="space-y-2">
-                      {s.schedule_items.map((item:any) => (
-                        <div key={item.id} className="flex items-center gap-2 text-sm text-slate-600 font-medium">
-                          <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
-                          {item.dose_quantity}x {item.medicines?.name || 'Unknown Medicine'} <span className="text-xs text-slate-400 ml-auto">Comp {item.compartment_id.substring(0,4)}</span>
+
+                    <div className="space-y-2 pt-1">
+                      {s.schedule_items?.map((item: any) => (
+                        <div key={item.id} className="flex items-center justify-between text-sm text-slate-700 font-semibold bg-white/60 p-2.5 rounded-xl border border-slate-100">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-blue-500" />
+                            <span>{item.dose_quantity}x {item.medicines?.name || 'Vicks'}</span>
+                          </div>
+                          <span className="text-xs text-slate-400 font-medium">Comp {item.compartment_id ? item.compartment_id.substring(0, 4) : '1'}</span>
                         </div>
                       ))}
                     </div>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </div>
         )}
-      </div>
+      </motion.div>
     </motion.div>
   );
-}
-
-function CalendarIcon(props: any) {
-  return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>;
 }

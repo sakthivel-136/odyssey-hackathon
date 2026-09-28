@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Pill, Plus, X, RefreshCw, Link2, CheckCircle2, Package, Clock, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Pill, Plus, X, RefreshCw, Link2, CheckCircle2, Package, Clock, ShieldCheck, AlertCircle, PackageOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { MedicineListSkeleton, EmptyState, MotionButton, SPRING_SNAPPY, SPRING_GENTLE } from '@/components/ui/motion';
 
 export default function MedicinesPage() {
   const [medicines, setMedicines] = useState<any[]>([]);
@@ -216,8 +217,15 @@ export default function MedicinesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent" />
+      <div className="max-w-6xl mx-auto space-y-8 pb-12">
+        <div className="flex justify-between items-center pb-6 border-b border-slate-200">
+          <div className="space-y-2">
+            <div className="h-8 w-48 bg-slate-200 rounded-xl animate-pulse" />
+            <div className="h-4 w-64 bg-slate-200 rounded-lg animate-pulse" />
+          </div>
+          <div className="h-10 w-36 bg-slate-200 rounded-2xl animate-pulse" />
+        </div>
+        <MedicineListSkeleton />
       </div>
     );
   }
@@ -233,21 +241,23 @@ export default function MedicinesPage() {
           </h1>
           <p className="text-slate-500 mt-1 text-base">Add medicines and assign them to physical compartments on your Medibox.</p>
         </div>
-        <button
+        <MotionButton
           onClick={() => setIsCreating(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-sm transition-all text-sm shrink-0"
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold flex items-center gap-2 shadow-md shadow-blue-500/20 text-sm shrink-0"
         >
           <Plus className="w-5 h-5" /> Add Medicine
-        </button>
+        </MotionButton>
       </header>
 
       {/* Medicine Cards */}
       {!medicines || medicines.length === 0 ? (
-        <div className="text-center py-20 border-2 border-dashed border-slate-200 rounded-3xl bg-white">
-          <Pill className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <p className="font-bold text-slate-400 text-lg">No Medicines Added</p>
-          <p className="text-slate-400 text-sm mt-1">Click "Add Medicine" to get started.</p>
-        </div>
+        <EmptyState
+          type="medicines"
+          title="No Medicines Added"
+          description="Add your first tablet or capsule to assign it to physical compartments on your Medibox."
+          actionLabel="Add Medicine"
+          onAction={() => setIsCreating(true)}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {(medicines || []).map((med) => {
@@ -256,9 +266,12 @@ export default function MedicinesPage() {
               <motion.div
                 key={med.id}
                 layout
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4 hover:shadow-md transition-shadow"
+                whileHover={{ y: -3 }}
+                whileTap={{ scale: 0.99 }}
+                transition={SPRING_GENTLE}
+                className="bg-white/80 backdrop-blur-md rounded-3xl p-6 border border-slate-200/80 shadow-sm hover:shadow-md transition-all space-y-5"
               >
                 <div className="flex justify-between items-start gap-4">
                   <div>
@@ -318,60 +331,82 @@ export default function MedicinesPage() {
       {/* --- 1. REFILL HARDWARE ACTIVE MODAL --- */}
       <AnimatePresence>
         {refillMed && refillComp && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              initial={{ opacity: 0, scale: 0.92, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-6 text-center"
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={SPRING_SNAPPY}
+              className="bg-white/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-white/60 space-y-6 text-center"
             >
-              <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto">
-                <RefreshCw className="w-8 h-8 animate-spin" />
+              {/* Dynamic Circular Countdown Ring with Animated Servo Icon */}
+              <div className="relative w-36 h-36 mx-auto flex items-center justify-center">
+                <svg className="w-full h-full transform -rotate-90">
+                  <defs>
+                    <linearGradient id="refill-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#2563EB" />
+                      <stop offset="100%" stopColor="#10B981" />
+                    </linearGradient>
+                  </defs>
+                  <circle
+                    cx="72"
+                    cy="72"
+                    r="56"
+                    stroke="#E2E8F0"
+                    strokeWidth="10"
+                    fill="transparent"
+                  />
+                  <motion.circle
+                    cx="72"
+                    cy="72"
+                    r="56"
+                    stroke="url(#refill-gradient)"
+                    strokeWidth="10"
+                    strokeDasharray={2 * Math.PI * 56}
+                    animate={{ strokeDashoffset: 2 * Math.PI * 56 * (1 - refillTimer / 60) }}
+                    transition={{ duration: 1, ease: 'linear' }}
+                    strokeLinecap="round"
+                    fill="transparent"
+                  />
+                </svg>
+
+                {/* Center Servo Status */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <PackageOpen className="w-8 h-8 text-blue-600 animate-pulse mb-1" />
+                  <span className="text-2xl font-black text-slate-900 tracking-tight font-mono">{refillTimer}s</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Time Left</span>
+                </div>
               </div>
 
               <div>
-                <span className="bg-emerald-100 text-emerald-800 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider">
-                  Hardware Lid OPEN
+                <span className="bg-emerald-100 text-emerald-800 text-xs font-black px-3.5 py-1.5 rounded-full uppercase tracking-wider border border-emerald-200">
+                  Compartment {refillComp.compartment_number} Lid OPEN
                 </span>
-                <h2 className="text-2xl font-black text-slate-900 mt-2">Refilling {refillMed.name}</h2>
-                <p className="text-slate-500 text-sm mt-1">
-                  Compartment {refillComp.compartment_number} lid is physically open. Place your pills inside.
+                <h2 className="text-2xl font-black text-slate-900 mt-3">Refilling {refillMed.name}</h2>
+                <p className="text-slate-500 text-sm mt-1 leading-relaxed">
+                  Lid is physically open on your Medibox. Fill your tablets into Compartment {refillComp.compartment_number}.
                 </p>
               </div>
 
-              {/* Countdown Timer Ring */}
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                <div className="flex items-center justify-center gap-2 text-amber-600 font-bold text-sm">
-                  <Clock className="w-4 h-4" />
-                  <span>Auto-closes in {refillTimer} seconds</span>
-                </div>
-                <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden mt-2">
-                  <div 
-                    className="h-full bg-blue-600 transition-all duration-1000"
-                    style={{ width: `${(refillTimer / 60) * 100}%` }}
-                  />
-                </div>
-              </div>
-
               {/* Set New Stock Input */}
-              <div className="text-left space-y-1">
-                <label className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">New Total Stock Quantity</label>
+              <div className="text-left space-y-1.5 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <label className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">New Total Stock Quantity</label>
                 <input
                   type="number"
                   value={refillStockInput}
                   onChange={(e) => setRefillStockInput(Number(e.target.value))}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 text-center text-lg outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full p-3 bg-white border border-slate-200 rounded-xl font-black text-slate-900 text-center text-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"
                 />
               </div>
 
               {/* Action Button */}
-              <button
+              <MotionButton
                 onClick={handleCompleteRefill}
-                disabled={refilling}
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-2xl text-sm transition shadow-sm disabled:opacity-50"
+                loading={refilling}
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-2xl text-sm shadow-md"
               >
-                {refilling ? 'Closing Lid...' : 'Done Refilling — Close Lid Now'}
-              </button>
+                Done Refilling — Close Lid Now
+              </MotionButton>
             </motion.div>
           </div>
         )}

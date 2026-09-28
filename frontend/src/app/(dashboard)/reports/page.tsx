@@ -9,6 +9,8 @@ import {
   Tooltip, ResponsiveContainer, Legend 
 } from 'recharts';
 
+import { ReportsSkeleton, NumberCountUp, SPRING_SNAPPY, SPRING_GENTLE } from '@/components/ui/motion';
+
 type ReportData = {
   total: number;
   completed: number;
@@ -50,9 +52,14 @@ export default function ReportsPage() {
       }
 
       try {
-        const res = await fetch('/api/reports/adherence', {
+        let res = await fetch('/api/reports/adherence', {
           headers: { 'Authorization': `Bearer ${session.access_token}` }
         });
+        if (!res.ok) {
+          res = await fetch('https://odyssey-hackathon.onrender.com/api/reports/adherence', {
+            headers: { 'Authorization': `Bearer ${session.access_token}` }
+          });
+        }
         if (res.ok) {
           const reportRes = await res.json();
           setData(reportRes);
@@ -69,8 +76,9 @@ export default function ReportsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent"></div>
+      <div className="max-w-6xl mx-auto space-y-8 px-4 sm:px-0 pb-12">
+        <div className="h-10 w-72 bg-slate-200 rounded-2xl animate-pulse" />
+        <ReportsSkeleton />
       </div>
     );
   }
@@ -213,48 +221,58 @@ export default function ReportsPage() {
       </div>
 
       {/* Real-time Inventory & Stock Levels */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
-        <h2 className="text-lg font-black text-slate-900 mb-1">Medicine Stock Inventory Monitor</h2>
-        <p className="text-xs text-slate-500 mb-6">Real-time remaining tablet count vs rounded upper max stock</p>
+      <div className="bg-white/80 backdrop-blur-md rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm">
+        <h2 className="text-xl font-black text-slate-900 mb-1">Medicine Stock Inventory Monitor</h2>
+        <p className="text-xs text-slate-500 font-semibold mb-6">Real-time remaining tablet count vs rounded upper max stock</p>
 
         {(!data.inventory_status || data.inventory_status.length === 0) ? (
           <p className="text-slate-400 text-center py-6 text-sm">No medicines registered in inventory.</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {data.inventory_status.map((item) => {
               const maxStock = getNearbyRoundMax(item.stock_quantity);
               const percentage = Math.min(100, Math.round((item.stock_quantity / maxStock) * 100));
 
               return (
-                <div key={item.id} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col justify-between">
+                <div key={item.id} className="bg-white/70 backdrop-blur-sm border border-slate-200/80 rounded-2xl p-5 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between">
                     <div>
                       <h4 className="font-extrabold text-slate-900 text-base">{item.name}</h4>
                       <p className="text-xs text-slate-500 font-semibold">{item.strength || 'Standard Dose'}</p>
                     </div>
                     {item.is_low ? (
-                      <span className="bg-red-100 text-red-700 text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                      <span className="bg-red-100 text-red-700 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 border border-red-200 animate-pulse">
                         <AlertTriangle className="w-3 h-3" /> Low Stock
                       </span>
                     ) : (
-                      <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-wider">
+                      <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider border border-emerald-200">
                         Stock OK
                       </span>
                     )}
                   </div>
 
-                  <div className="mt-4">
-                    <div className="flex justify-between items-center text-xs font-bold text-slate-700 mb-1.5">
+                  <div className="mt-5">
+                    <div className="flex justify-between items-center text-xs font-bold text-slate-700 mb-2">
                       <span>Current Stock</span>
                       <span className={item.is_low ? 'text-red-600 font-black' : 'text-slate-900'}>
                         {item.stock_quantity} / {maxStock}
                       </span>
                     </div>
-                    <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full transition-all ${item.is_low ? 'bg-red-500' : 'bg-emerald-500'}`}
-                        style={{ width: `${percentage}%` }}
-                      />
+                    <div className="w-full bg-slate-200/80 h-3 rounded-full overflow-hidden p-0.5">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        whileInView={{ width: `${percentage}%` }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+                        className={`relative h-full rounded-full overflow-hidden ${item.is_low ? 'bg-red-500' : 'bg-emerald-500'}`}
+                      >
+                        {/* Shimmer sweep */}
+                        <motion.div
+                          animate={{ x: ['-100%', '200%'] }}
+                          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none"
+                        />
+                      </motion.div>
                     </div>
                   </div>
                 </div>

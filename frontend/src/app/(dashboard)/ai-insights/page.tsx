@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase';
 import { BrainCircuit, Sparkles, RefreshCw, AlertTriangle, CheckCircle2, Copy, Check, Clock, Pill, ShieldAlert, FileText, Info, Lightbulb, HeartPulse } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+import { MotionButton, CardSkeleton, SPRING_SNAPPY, SPRING_GENTLE } from '@/components/ui/motion';
+
 type MedicineGuide = {
   name: string;
   purpose: string;
@@ -44,9 +46,14 @@ export default function AIInsightsPage() {
     }
 
     try {
-      const res = await fetch('/api/ai/daily-insight', {
+      let res = await fetch('/api/ai/daily-insight', {
         headers: { 'Authorization': `Bearer ${session.access_token}` }
       });
+      if (!res.ok) {
+        res = await fetch('https://odyssey-hackathon.onrender.com/api/ai/daily-insight', {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        });
+      }
       if (res.ok) {
         const result = await res.json();
         setData(result.insight || null);
@@ -82,9 +89,25 @@ export default function AIInsightsPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-        <p className="text-slate-500 font-bold text-sm animate-pulse">Analyzing real-world medicine usage with AI...</p>
+      <div className="max-w-5xl mx-auto space-y-8 px-4 sm:px-0 pb-12">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600 animate-pulse">
+            <BrainCircuit className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-slate-900">AI Clinical Intelligence</h2>
+            <p className="text-xs text-slate-500 font-semibold">Gemini AI is analyzing your dosage compliance and real-world medicine guidelines...</p>
+          </div>
+        </div>
+        <div className="bg-white/80 backdrop-blur-md rounded-3xl p-8 border border-slate-200/80 shadow-sm space-y-4">
+          <div className="h-6 w-52 bg-slate-200 rounded-xl animate-pulse" />
+          <div className="h-4 w-full bg-slate-200 rounded-lg animate-pulse" />
+          <div className="h-4 w-3/4 bg-slate-200 rounded-lg animate-pulse" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <CardSkeleton />
+          <CardSkeleton />
+        </div>
       </div>
     );
   }
@@ -135,21 +158,24 @@ export default function AIInsightsPage() {
           <p className="text-slate-500 mt-1 text-base">Real-world usage instructions, simple guidance, and clinical compliance analysis.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <MotionButton
+            variant="secondary"
+            success={copied}
             onClick={handleCopyDoctorSummary}
-            className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 px-4 py-2.5 rounded-xl font-bold text-xs transition-colors"
+            className="flex items-center gap-2 font-bold text-xs"
           >
             {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-            {copied ? 'Copied Summary' : 'Copy Doctor Brief'}
-          </button>
-          <button
+            {copied ? 'Copied Brief' : 'Copy Doctor Brief'}
+          </MotionButton>
+          <MotionButton
+            variant="primary"
+            loading={generating}
             onClick={handleRegenerate}
-            disabled={generating}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs transition-all shadow-sm disabled:opacity-50"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20"
           >
             <RefreshCw className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
             Regenerate AI Analysis
-          </button>
+          </MotionButton>
         </div>
       </motion.header>
 
