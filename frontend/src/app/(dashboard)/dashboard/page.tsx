@@ -261,7 +261,7 @@ export default function DashboardPage() {
                       {s.schedule_items.map((item:any) => (
                         <div key={item.id} className="flex items-center gap-2 text-sm text-slate-600 font-medium">
                           <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
-                          {item.dose_quantity}x {item.medicines.name} <span className="text-xs text-slate-400 ml-auto">Comp {item.compartment_id.substring(0,4)}</span>
+                          {item.dose_quantity}x {item.medicines?.name || 'Unknown Medicine'} <span className="text-xs text-slate-400 ml-auto">Comp {item.compartment_id.substring(0,4)}</span>
                         </div>
                       ))}
                     </div>
