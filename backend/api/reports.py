@@ -35,7 +35,8 @@ def get_adherence_report(user = Depends(get_current_user)):
     completed = len([e for e in processed_events if e.get("calc_status") == "COMPLETED"])
     missed = len([e for e in processed_events if e.get("calc_status") == "MISSED"])
     
-    adherence_rate = round((completed / total * 100)) if total > 0 else 88
+    valid_total = completed + missed
+    adherence_rate = round((completed / valid_total * 100)) if valid_total > 0 else 100
     
     today = datetime.now(IST).date()
     weekly_trend = []
@@ -53,12 +54,13 @@ def get_adherence_report(user = Depends(get_current_user)):
             day_taken = 2 if i % 2 == 0 else 1
             day_missed = 0 if i != 2 else 1
             
+        day_total = day_taken + day_missed
         weekly_trend.append({
             "day": day_label,
             "date": day_str,
             "taken": day_taken,
             "missed": day_missed,
-            "adherence": round((day_taken / (day_taken + day_missed) * 100)) if (day_taken + day_missed) > 0 else 100
+            "adherence": round((day_taken / day_total * 100)) if day_total > 0 else 100
         })
         
     hourly_counts = {"06:00": 1, "09:00": 3, "12:00": 4, "15:00": 2, "18:00": 1, "21:00": 2}
