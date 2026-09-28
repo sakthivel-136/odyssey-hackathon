@@ -77,7 +77,22 @@ class MqttManager:
         event_type = data.get("event")
         compartment_num = data.get("compartment_id") or data.get("compartment")
         
+        
+        if event_type == "HEARTBEAT":
+            # Update the last_seen timestamp in the devices table
+            try:
+                # If device exists, update its last_seen timestamp
+                dev_res = supabase.table("devices").select("id").eq("device_id", device_id).execute()
+                if dev_res.data:
+                    dev_uuid = dev_res.data[0]["id"]
+                    supabase.table("devices").update({"last_seen": "now()"}).eq("id", dev_uuid).execute()
+                    logger.debug(f"Heartbeat received from {device_id}. Updated last_seen.")
+                return # Don't log heartbeats to sensor_events to save DB space
+            except Exception as e:
+                logger.error(f"Failed to process heartbeat: {e}")
+                
         # --- TWILIO ALARM INTEGRATION ---
+
         if event_type == "DOSE_MISSED":
             logger.info(f"Triggering Twilio SMS and Call for Missed Dose in Compartment {compartment_num}!")
             try:
