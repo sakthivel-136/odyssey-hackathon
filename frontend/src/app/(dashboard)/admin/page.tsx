@@ -31,13 +31,16 @@ export default function AdminSaaSDashboard() {
   if (loading) return <div className="p-8 font-bold text-slate-500">Loading SaaS Metrics...</div>;
 
   // Calculate Metrics
-  const basicOrders = orders.filter(o => o.num_containers === 1);
-  const proOrders = orders.filter(o => o.num_containers === 3 || (o.num_containers !== 1 && o.num_containers !== 6));
+  const basicOrders = orders.filter(o => o.num_containers === 1 || o.num_containers === 11);
+  const proOrders = orders.filter(o => o.num_containers === 3 || o.num_containers === 13 || (o.num_containers !== 1 && o.num_containers !== 11 && o.num_containers !== 6));
   const ultraOrders = orders.filter(o => o.num_containers === 6);
 
   const calculateRevenue = (orderList: any[]) => {
     return orderList.reduce((acc, order) => {
       if (order.num_containers === 1) return acc + 199;
+      if (order.num_containers === 11) return acc + 199 + 150;
+      if (order.num_containers === 3) return acc + 399;
+      if (order.num_containers === 13) return acc + 399 + 150;
       if (order.num_containers === 6) return acc + 799;
       return acc + 399; // Pro is default fallback
     }, 0);
@@ -134,8 +137,8 @@ export default function AdminSaaSDashboard() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {orders.map(order => {
-                const plan = order.num_containers === 1 ? 'Basic' : order.num_containers === 6 ? 'Ultra' : 'Pro';
-                const price = plan === 'Basic' ? 199 : plan === 'Ultra' ? 799 : 399;
+                const plan = order.num_containers === 1 ? 'Basic' : order.num_containers === 11 ? 'Basic+AI' : order.num_containers === 6 ? 'Ultra' : order.num_containers === 13 ? 'Pro+AI' : 'Pro';
+                const price = plan === 'Basic' ? 199 : plan === 'Basic+AI' ? 349 : plan === 'Ultra' ? 799 : plan === 'Pro+AI' ? 549 : 399;
                 
                 return (
                   <tr key={order.id} className="hover:bg-slate-50 transition">
@@ -143,7 +146,9 @@ export default function AdminSaaSDashboard() {
                     <td className="p-4 text-slate-500 font-mono text-sm">{order.box_name}</td>
                     <td className="p-4">
                       {plan === 'Basic' && <span className="bg-slate-100 text-slate-700 px-3 py-1 rounded-full text-xs font-bold">Basic</span>}
+                      {plan === 'Basic+AI' && <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">Basic + Addon</span>}
                       {plan === 'Pro' && <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">Pro</span>}
+                      {plan === 'Pro+AI' && <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">Pro + Addon</span>}
                       {plan === 'Ultra' && <span className="bg-purple-200 text-purple-900 px-3 py-1 rounded-full text-xs font-bold">Ultra</span>}
                     </td>
                     <td className="p-4 font-bold text-slate-700">₹{price}</td>

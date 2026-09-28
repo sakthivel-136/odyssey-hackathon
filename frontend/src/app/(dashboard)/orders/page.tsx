@@ -10,6 +10,7 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [premiumAddon, setPremiumAddon] = useState<boolean>(false);
   const [formData, setFormData] = useState({ customer_name: '', box_name: '' });
 
   useEffect(() => {
@@ -30,9 +31,9 @@ export default function OrdersPage() {
   };
 
   const getContainersForPlan = (plan: string) => {
-    if (plan === 'Basic') return 1;
-    if (plan === 'Pro') return 3;
-    if (plan === 'Ultra') return 6;
+    if (plan === 'Basic') return premiumAddon ? 11 : 1;
+    if (plan === 'Pro') return premiumAddon ? 13 : 3;
+    if (plan === 'Ultra') return 6; // Ultra always has it
     return 3;
   };
 
@@ -170,6 +171,16 @@ export default function OrdersPage() {
           <h2 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-2">
             Complete {selectedPlan} Plan Order <ArrowRight className="w-5 h-5 text-slate-400"/>
           </h2>
+          
+          {(selectedPlan === 'Basic' || selectedPlan === 'Pro') && (
+            <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-xl mb-6 flex items-start gap-3 cursor-pointer" onClick={() => setPremiumAddon(!premiumAddon)}>
+              <input type="checkbox" checked={premiumAddon} onChange={() => {}} className="mt-1 w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500" />
+              <div>
+                <p className="font-bold text-indigo-900">Add Premium Alert Package (+₹150/mo)</p>
+                <p className="text-sm text-indigo-700 mt-1">Unlock AI Insights, Voice Calls, and Unlimited SMS alerts for your {selectedPlan} plan.</p>
+              </div>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-1">
               <label className="text-sm font-bold text-slate-700">Full Name</label>
@@ -182,7 +193,7 @@ export default function OrdersPage() {
             </div>
 
             <button disabled={submitting} type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
-              <PackageOpen className="w-6 h-6" /> {submitting ? 'Processing Payment...' : `Subscribe to ${selectedPlan} Plan (₹${selectedPlan === 'Ultra' ? '799' : selectedPlan === 'Pro' ? '399' : '199'}/mo)`}
+              <PackageOpen className="w-6 h-6" /> {submitting ? 'Processing Payment...' : `Subscribe to ${selectedPlan} Plan (₹${selectedPlan === 'Ultra' ? '799' : selectedPlan === 'Pro' ? (premiumAddon ? 549 : 399) : (premiumAddon ? 349 : 199)}/mo)`}
             </button>
           </form>
         </motion.div>
@@ -203,9 +214,9 @@ export default function OrdersPage() {
                 <div>
                   <div className="flex items-center gap-3 mb-1">
                     <h3 className="font-bold text-lg text-slate-900">{order.box_name}</h3>
-                    <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-bold">{order.num_containers === 1 ? 'Basic' : order.num_containers === 6 ? 'Ultra' : 'Pro'} Plan</span>
+                    <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-bold">{order.num_containers === 1 ? 'Basic' : order.num_containers === 11 ? 'Basic + AI' : order.num_containers === 6 ? 'Ultra' : order.num_containers === 13 ? 'Pro + AI' : 'Pro'} Plan</span>
                   </div>
-                  <p className="text-sm text-slate-500">{order.num_containers} Compartments Hardware • Ordered on {new Date(order.created_at).toLocaleDateString()}</p>
+                  <p className="text-sm text-slate-500">{order.num_containers > 10 ? order.num_containers - 10 : order.num_containers} Compartments Hardware • Ordered on {new Date(order.created_at).toLocaleDateString()}</p>
                 </div>
                 
                 <div className="flex flex-col items-start md:items-end gap-3">

@@ -320,7 +320,7 @@ void displayMessage(const String& line1, const String& line2) {
                     <span className="font-bold text-slate-700">medibox_firmware.ino</span>
                   </div>
                   <button onClick={() => {
-                      const blob = new Blob([generateCppCode(selectedOrder.box_name, selectedOrder.num_containers)], { type: 'text/plain' });
+                      const blob = new Blob([generateCppCode(selectedOrder.box_name, selectedOrder.num_containers > 10 ? selectedOrder.num_containers - 10 : selectedOrder.num_containers)], { type: 'text/plain' });
                       const url = window.URL.createObjectURL(blob);
                       const a = document.createElement('a');
                       a.href = url;
@@ -331,7 +331,7 @@ void displayMessage(const String& line1, const String& line2) {
                   </button>
                 </div>
                 <pre className="p-6 bg-slate-900 text-slate-300 overflow-x-auto text-xs font-mono h-96">
-                  <code>{generateCppCode(selectedOrder.box_name, selectedOrder.num_containers)}</code>
+                  <code>{generateCppCode(selectedOrder.box_name, selectedOrder.num_containers > 10 ? selectedOrder.num_containers - 10 : selectedOrder.num_containers)}</code>
                 </pre>
               </div>
             </div>
