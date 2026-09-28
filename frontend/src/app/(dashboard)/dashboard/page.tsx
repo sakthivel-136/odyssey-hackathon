@@ -186,7 +186,7 @@ export default function DashboardPage() {
                 <p className="text-blue-200 font-bold tracking-wider text-sm mb-1 uppercase">Next Scheduled Dose</p>
                 <h2 className="text-4xl font-black">{nextSchedule.schedule_time.substring(0, 5)}</h2>
                 <p className="text-blue-100 mt-2 font-medium text-lg">
-                  {nextSchedule.schedule_items.map((i:any) => `${i.dose_quantity}x ${i.medicines.name}`).join(' • ')}
+                  {nextSchedule.schedule_items.map((i:any) => `${i.dose_quantity}x ${i.medicines?.name || 'Unknown Medicine'}`).join(' • ')}
                 </p>
               </div>
               <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center">
