@@ -188,16 +188,16 @@ class DoseEngine:
             logger.error(f"Error decrementing stock: {e}")
 
     def on_ir_interaction(self, device_uuid, compartment_uuid):
+        found = False
         # Find active sequence
-        for dose_id, seq in self.active_sequences.items():
-            if seq["device_uuid"] == device_uuid:
+        for dose_id, seq in list(self.active_sequences.items()):
+            if seq.get("device_uuid") == device_uuid:
                 step = seq["steps"][seq["current_step_idx"]]
-                if step["compartment_id"] == compartment_uuid and seq["state"] == "WAITING_IR":
+                if step.get("compartment_id") == compartment_uuid and seq.get("state") == "WAITING_IR":
                     logger.info(f"DoseEngine: IR Interaction detected for Dose {dose_id}")
                     seq["state"] = "WAITING_CLOSE"
                     self.decrement_stock(step)
-                    
-                    # Log to dose history that this step was taken
+                    found = True
                     
                     # Auto close
                     mqtt_manager.publish_command(seq["device_id_str"], {
@@ -206,19 +206,39 @@ class DoseEngine:
                         "compartment_number": seq["current_compartment_num"]
                     })
                     
-                    # Advance step
                     seq["current_step_idx"] += 1
-                    
-                    # To support multiple medicines in the same compartment, 
-                    # we wait 5 seconds before triggering the next step so the physical lid has time to close.
-                    import threading
-                    def trigger_next():
-                        import time
-                        time.sleep(5)
-                        self.execute_current_step(dose_id)
-                    
-                    threading.Thread(target=trigger_next).start()
+                    if seq["current_step_idx"] >= len(seq["steps"]):
+                        self.complete_sequence(dose_id)
                     return
+
+        # FALLBACK: If active sequence RAM was reset by server restart, complete latest IN_PROGRESS event in DB
+        if not found:
+            try:
+                supabase = get_supabase()
+                from datetime import datetime, timezone
+                now_iso = datetime.now(timezone.utc).isoformat()
+                
+                in_prog = supabase.table("dose_events").select("*").eq("device_id", device_uuid).eq("status", "IN_PROGRESS").order("created_at", desc=True).limit(1).execute()
+                if in_prog.data:
+                    ev_id = in_prog.data[0]["id"]
+                    supabase.table("dose_events").update({
+                        "status": "COMPLETED",
+                        "taken_time": now_iso
+                    }).eq("id", ev_id).execute()
+                    logger.info(f"💊 [DB FALLBACK] Marked dose event {ev_id} as COMPLETED on IR trigger.")
+                    
+                    # Decrement stock for compartment
+                    mc = supabase.table("medicine_compartments").select("medicine_id").eq("compartment_id", compartment_uuid).execute()
+                    if mc.data:
+                        m_id = mc.data[0]["medicine_id"]
+                        m_res = supabase.table("medicines").select("stock_quantity").eq("id", m_id).execute()
+                        if m_res.data:
+                            curr_s = m_res.data[0].get("stock_quantity") or 0
+                            new_s = max(0, curr_s - 1)
+                            supabase.table("medicines").update({"stock_quantity": new_s}).eq("id", m_id).execute()
+                            logger.info(f"💊 [DB FALLBACK] Decremented stock for medicine {m_id}: {curr_s} -> {new_s}")
+            except Exception as e:
+                logger.error(f"Fallback IR completion error: {e}")
 
     def complete_sequence(self, dose_event_id):
         logger.info(f"DoseEngine: Sequence Complete for Dose {dose_event_id}")
