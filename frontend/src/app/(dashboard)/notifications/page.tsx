@@ -28,9 +28,14 @@ export default function NotificationsPage() {
       }
 
       try {
-        const res = await fetch('/api/notifications', {
+        let res = await fetch('/api/notifications', {
           headers: { 'Authorization': `Bearer ${session.access_token}` }
         });
+        if (!res.ok) {
+          res = await fetch('https://odyssey-hackathon.onrender.com/api/notifications', {
+            headers: { 'Authorization': `Bearer ${session.access_token}` }
+          });
+        }
         if (res.ok) {
           const data = await res.json();
           setNotifications(data || []);

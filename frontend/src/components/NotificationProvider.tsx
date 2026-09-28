@@ -29,9 +29,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       if (!session) return;
 
       try {
-        const res = await fetch('/api/notifications', {
+        let res = await fetch('/api/notifications', {
           headers: { 'Authorization': `Bearer ${session.access_token}` }
         });
+        if (!res.ok) {
+          res = await fetch('https://odyssey-hackathon.onrender.com/api/notifications', {
+            headers: { 'Authorization': `Bearer ${session.access_token}` }
+          });
+        }
         if (!res.ok) return;
         
         const notifications = await res.json();

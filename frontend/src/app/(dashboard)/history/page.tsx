@@ -34,9 +34,14 @@ export default function HistoryPage() {
       }
 
       try {
-        const res = await fetch('/api/history', {
+        let res = await fetch('/api/history', {
           headers: { 'Authorization': `Bearer ${session.access_token}` }
         });
+        if (!res.ok) {
+          res = await fetch('https://odyssey-hackathon.onrender.com/api/history', {
+            headers: { 'Authorization': `Bearer ${session.access_token}` }
+          });
+        }
         if (res.ok) {
           const data = await res.json();
           setEvents(data.events || []);

@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
     'localhost'
   ],
   async rewrites() {
-    const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
+    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'https://odyssey-hackathon.onrender.com';
     return [
       {
         source: '/api/:path*',

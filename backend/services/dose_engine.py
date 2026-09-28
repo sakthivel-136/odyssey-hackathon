@@ -1,7 +1,7 @@
 import logging
 import time
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 
 IST = ZoneInfo("Asia/Kolkata")
@@ -56,6 +56,54 @@ class DoseEngine:
         
         schedules_res = supabase.table("schedules").select("*, devices(device_id)").eq("is_active", True).execute()
         
+        # Check for expired IN_PROGRESS events older than 3 minutes -> mark MISSED and send Twilio alert
+        try:
+            now_utc = datetime.now(timezone.utc)
+            in_prog_events = supabase.table("dose_events").select(
+                "*, schedules(*, schedule_items(*, medicines(*)))"
+            ).eq("status", "IN_PROGRESS").execute()
+
+            for ev in (in_prog_events.data or []):
+                created_str = ev.get("created_at")
+                if created_str:
+                    ev_dt = datetime.fromisoformat(created_str.replace("Z", "+00:00"))
+                    diff_mins = (now_utc - ev_dt).total_seconds() / 60.0
+                    if diff_mins > 3.0: # 3 minutes elapsed without IR verification
+                        ev_id = ev["id"]
+                        supabase.table("dose_events").update({"status": "MISSED"}).eq("id", ev_id).execute()
+                        
+                        # Get medicine name
+                        sched = ev.get("schedules") or {}
+                        items = sched.get("schedule_items") or []
+                        med_name = "Vicks 500mg"
+                        if items and items[0].get("medicines"):
+                            med_name = items[0]["medicines"].get("name", med_name)
+                        
+                        sched_time = ev.get("scheduled_time") or "Schedule Time"
+
+                        # Send missed dose notification to DB table
+                        dev_id_uuid = ev.get("device_id")
+                        if dev_id_uuid:
+                            dev_res = supabase.table("devices").select("owner_id, device_id").eq("id", dev_id_uuid).execute()
+                            if dev_res.data and dev_res.data[0].get("owner_id"):
+                                u_id = dev_res.data[0]["owner_id"]
+                                actual_device_id = dev_res.data[0].get("device_id", "Odyssey Medibox")
+                                
+                                try:
+                                    supabase.table("notifications").insert({
+                                        "user_id": u_id,
+                                        "title": "🚨 MISSED DOSE ALERT!",
+                                        "message": f"{med_name} dose was missed at {sched_time}! Emergency Twilio call dispatched.",
+                                        "type": "error",
+                                        "is_read": False
+                                    }).execute()
+                                except Exception:
+                                    pass
+
+                                logger.info(f"🚨 Marked dose event {ev_id} as MISSED for {med_name}.")
+        except Exception as e:
+            logger.error(f"Error checking missed dose events: {e}")
+
         for sched in schedules_res.data:
             sched_time = sched["schedule_time"][:5]
             
