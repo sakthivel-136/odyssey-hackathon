@@ -88,14 +88,20 @@ def test_servo(req: TestCommandReq, user = Depends(get_current_user)):
         "status": "PENDING"
     }).execute()
     
-    # Publish MQTT
+        # Publish MQTT
     mqtt_manager.publish_command(actual_device_id_str, {
         "command_id": cmd_id,
         "cmd": "OPEN_LID",
         "compartment_number": req.compartment_number
     })
     
+    # Update compartment status to OPEN so the frontend Realtime UI updates
+    supabase.table("compartments").update({
+        "servo_status": "OPEN"
+    }).eq("device_id", req.device_id).eq("compartment_number", req.compartment_number).execute()
+    
     return {"message": "Servo test command sent", "command_id": cmd_id}
+
 
 @router.post("/test/ir")
 def test_ir(req: TestCommandReq, user = Depends(get_current_user)):
