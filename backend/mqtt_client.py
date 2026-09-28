@@ -30,6 +30,7 @@ class MqttManager:
         logger.info(f"MQTT Connected with result code {rc}")
         client.subscribe("medibox/+/ack")
         client.subscribe("medibox/+/event")
+        client.subscribe("medibox/+/events")
         client.subscribe("medibox/+/status")
         client.subscribe("medibox/+/telemetry")
 
@@ -57,7 +58,7 @@ class MqttManager:
             
             if msg_type == "ack":
                 self.handle_ack(supabase, device_id, data)
-            elif msg_type == "event" or msg_type == "events":
+            elif msg_type in ("event", "events"):
                 self.handle_event(supabase, device_id, data)
             elif msg_type == "status":
                 self.handle_status(supabase, device_id, data)
