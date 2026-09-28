@@ -95,6 +95,21 @@ class MqttManager:
         # --- TWILIO ALARM INTEGRATION ---
 
         if event_type == "DOSE_MISSED":
+            try:
+                if dev_res.data and dev_res.data[0].get("owner_id"):
+                    u_id = dev_res.data[0]["owner_id"]
+                    from datetime import datetime
+                    t_str = datetime.now().strftime("%I:%M %p")
+                    supabase.table("notifications").insert({
+                        "user_id": u_id,
+                        "title": "🚨 MISSED DOSE ALERT!",
+                        "message": f"Dose missed in Compartment {compartment_num} at {t_str}! Emergency Twilio call dispatched.",
+                        "type": "error",
+                        "is_read": False
+                    }).execute()
+                    logger.info(f"Created missed dose notification for user {u_id}")
+            except Exception as ne:
+                logger.error(f"Failed to insert missed notification: {ne}")
             logger.info(f"Triggering Twilio SMS and Call for Missed Dose in Compartment {compartment_num}!")
             try:
                 import httpx

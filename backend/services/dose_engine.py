@@ -143,6 +143,27 @@ class DoseEngine:
         })
         logger.info(f"DoseEngine: Opening Compartment {comp_num} for Dose {dose_event_id}")
 
+        # Send notification to user
+        try:
+            seq_obj = self.active_sequences.get(dose_event_id)
+            if seq_obj:
+                d_uuid = seq_obj.get("device_uuid")
+                dev_res = supabase.table("devices").select("owner_id").eq("id", d_uuid).execute()
+                if dev_res.data and dev_res.data[0].get("owner_id"):
+                    u_id = dev_res.data[0]["owner_id"]
+                    from datetime import datetime
+                    t_str = datetime.now().strftime("%I:%M %p")
+                    supabase.table("notifications").insert({
+                        "user_id": u_id,
+                        "title": "⏰ Schedule Started",
+                        "message": f"Compartment {comp_num} lid opened at {t_str}. Please take your dose now.",
+                        "type": "info",
+                        "is_read": False
+                    }).execute()
+        except Exception as ne:
+            logger.error(f"Failed to insert start notification: {ne}")
+
+
     
     def decrement_stock(self, step):
         try:

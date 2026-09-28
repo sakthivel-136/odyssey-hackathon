@@ -12,6 +12,7 @@ router = APIRouter(prefix="/api/reports", tags=["Reports"])
 def get_adherence_report(user = Depends(get_current_user)):
     supabase = get_supabase()
     
+    # 1. Get user's devices
     dev_res = supabase.table("devices").select("id").eq("owner_id", user.id).execute()
     device_ids = [str(d["id"]) for d in dev_res.data]
     
@@ -21,6 +22,7 @@ def get_adherence_report(user = Depends(get_current_user)):
             "weekly_trend": [], "hourly_distribution": [], "inventory_status": [], "uptime": 99.9
         }
         
+    # 2. Query real dose events strictly from database
     events_res = supabase.table("dose_events").select("*").in_("device_id", device_ids).execute()
     events = events_res.data or []
     
@@ -38,6 +40,7 @@ def get_adherence_report(user = Depends(get_current_user)):
     valid_total = completed + missed
     adherence_rate = round((completed / valid_total * 100)) if valid_total > 0 else 100
     
+    # 3. Compute Weekly Trend (last 7 days strictly from real data)
     today = datetime.now(IST).date()
     weekly_trend = []
     
@@ -49,12 +52,8 @@ def get_adherence_report(user = Depends(get_current_user)):
         day_events = [e for e in processed_events if e.get("event_date") == day_str]
         day_taken = len([e for e in day_events if e.get("calc_status") == "COMPLETED"])
         day_missed = len([e for e in day_events if e.get("calc_status") == "MISSED"])
-        
-        if not day_events:
-            day_taken = 2 if i % 2 == 0 else 1
-            day_missed = 0 if i != 2 else 1
-            
         day_total = day_taken + day_missed
+        
         weekly_trend.append({
             "day": day_label,
             "date": day_str,
@@ -63,7 +62,8 @@ def get_adherence_report(user = Depends(get_current_user)):
             "adherence": round((day_taken / day_total * 100)) if day_total > 0 else 100
         })
         
-    hourly_counts = {"06:00": 1, "09:00": 3, "12:00": 4, "15:00": 2, "18:00": 1, "21:00": 2}
+    # 4. Compute Hourly Distribution strictly from real data
+    hourly_counts = {f"{h:02d}:00": 0 for h in range(6, 23, 3)}
     for e in processed_events:
         s_time = e.get("scheduled_time") or ""
         if s_time and len(s_time) >= 2:
@@ -77,6 +77,7 @@ def get_adherence_report(user = Depends(get_current_user)):
                 
     hourly_distribution = [{"time": k, "doses": v} for k, v in hourly_counts.items()]
     
+    # 5. Inventory Stock Status strictly from real medicines table
     meds_res = supabase.table("medicines").select("*").eq("user_id", user.id).execute()
     inventory_status = []
     for m in meds_res.data or []:
@@ -84,15 +85,15 @@ def get_adherence_report(user = Depends(get_current_user)):
             "id": m["id"],
             "name": m["name"],
             "strength": m.get("strength") or "500mg",
-            "stock_quantity": m.get("stock_quantity", 60),
+            "stock_quantity": m.get("stock_quantity", 0),
             "low_stock_threshold": m.get("low_stock_threshold", 10),
-            "is_low": m.get("stock_quantity", 60) <= m.get("low_stock_threshold", 10)
+            "is_low": m.get("stock_quantity", 0) <= m.get("low_stock_threshold", 10)
         })
         
     return {
-        "total": max(total, 6),
-        "completed": max(completed, 5),
-        "missed": max(missed, 1),
+        "total": total,
+        "completed": completed,
+        "missed": missed,
         "adherence_rate": adherence_rate,
         "weekly_trend": weekly_trend,
         "hourly_distribution": hourly_distribution,
