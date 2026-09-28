@@ -108,14 +108,13 @@ export default function OrdersPage() {
           <div className="absolute top-0 right-0 p-6 opacity-20"><Shield className="w-16 h-16 text-slate-500" /></div>
           <h3 className="text-2xl font-black text-slate-900 mb-2">Basic</h3>
           <div className="flex items-baseline gap-1 mb-6">
-            <span className="text-4xl font-black text-blue-600">₹199</span>
-            <span className="text-slate-500 font-medium">/month</span>
+            <span className="text-4xl font-black text-blue-600">₹4,500</span>
+            <span className="text-slate-500 font-medium">One-Time</span>
           </div>
           <ul className="space-y-4 mb-8 text-slate-600 font-medium">
             <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-blue-500"/> 1 Compartment Hardware</li>
             <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-blue-500"/> Standard App Access</li>
-            <li className="flex items-center gap-3 text-slate-400"><XCircle className="w-5 h-5"/> No SMS/Call Alerts</li>
-            <li className="flex items-center gap-3 text-slate-400"><XCircle className="w-5 h-5"/> No AI Insights</li>
+            <li className="flex items-center gap-3 text-slate-400"><XCircle className="w-5 h-5"/> Features Require Add-on</li>
           </ul>
         </motion.div>
 
@@ -129,14 +128,13 @@ export default function OrdersPage() {
           <div className="absolute top-0 right-0 p-6 opacity-20"><Zap className="w-16 h-16 text-blue-500" /></div>
           <h3 className="text-2xl font-black text-slate-900 mb-2">Pro</h3>
           <div className="flex items-baseline gap-1 mb-6">
-            <span className="text-4xl font-black text-blue-600">₹399</span>
-            <span className="text-slate-500 font-medium">/month</span>
+            <span className="text-4xl font-black text-blue-600">₹5,000</span>
+            <span className="text-slate-500 font-medium">One-Time</span>
           </div>
           <ul className="space-y-4 mb-8 text-slate-600 font-medium">
             <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-blue-500"/> 3 Compartments Hardware</li>
-            <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-blue-500"/> Full App Access</li>
-            <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-blue-500"/> Included SMS Allowance</li>
-            <li className="flex items-center gap-3 text-slate-400"><XCircle className="w-5 h-5"/> No AI Insights</li>
+            <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-blue-500"/> Standard App Access</li>
+            <li className="flex items-center gap-3 text-slate-400"><XCircle className="w-5 h-5"/> Features Require Add-on</li>
           </ul>
         </motion.div>
 
@@ -149,14 +147,13 @@ export default function OrdersPage() {
           <div className="absolute top-0 right-0 p-6 opacity-20"><Crown className="w-16 h-16 text-purple-400" /></div>
           <h3 className="text-2xl font-black text-white mb-2">Ultra</h3>
           <div className="flex items-baseline gap-1 mb-6">
-            <span className="text-4xl font-black text-purple-400">₹799</span>
-            <span className="text-slate-400 font-medium">/month</span>
+            <span className="text-4xl font-black text-purple-400">₹7,000</span>
+            <span className="text-slate-400 font-medium">One-Time</span>
           </div>
           <ul className="space-y-4 mb-8 text-slate-300 font-medium">
             <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-purple-400"/> 6 Compartments Hardware</li>
-            <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-purple-400"/> Priority Support</li>
-            <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-purple-400"/> Unlimited Calls & SMS</li>
-            <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-purple-400"/> Priority AI Insights</li>
+            <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-purple-400"/> Standard App Access</li>
+            <li className="flex items-center gap-3 text-slate-500"><XCircle className="w-5 h-5"/> Features Require Add-on</li>
           </ul>
         </motion.div>
       </div>
