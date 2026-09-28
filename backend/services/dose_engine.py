@@ -2,6 +2,9 @@ import logging
 import time
 import asyncio
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
+IST = ZoneInfo("Asia/Kolkata")
 from database import get_supabase
 from mqtt_client import mqtt_manager
 
@@ -38,7 +41,7 @@ class DoseEngine:
             now_str = self.demo_mode_time
             now_date = datetime.now().date().isoformat()
         else:
-            now = datetime.now()
+            now = datetime.now(IST)
             now_str = now.strftime("%H:%M:%S")
             now_date = now.date().isoformat()
             
