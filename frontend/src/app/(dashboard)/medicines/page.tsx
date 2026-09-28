@@ -32,7 +32,23 @@ export default function MedicinesPage() {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
+  const getCompartmentMedicineId = (comp: any) => {
+    if (!comp?.medicine_compartments) return null;
+    if (Array.isArray(comp.medicine_compartments)) {
+      return comp.medicine_compartments[0]?.medicine_id || null;
+    }
+    return comp.medicine_compartments.medicine_id || null;
+  };
+
+  const getCompartmentMedicineName = (comp: any) => {
+    if (!comp?.medicine_compartments) return null;
+    if (Array.isArray(comp.medicine_compartments)) {
+      return comp.medicine_compartments[0]?.medicines?.name || null;
+    }
+    return comp.medicine_compartments.medicines?.name || null;
+  };
+
+  async function fetchData() {
     setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
@@ -62,7 +78,7 @@ export default function MedicinesPage() {
     setLoading(false);
   };
 
-  const loadCompartments = async (deviceId: string, tok?: string) => {
+  async function loadCompartments(deviceId: string, tok?: string) {
     const t = tok || token;
     const res = await fetch(`/api/compartments/${deviceId}`, {
       headers: { 'Authorization': `Bearer ${t}` }
@@ -87,7 +103,7 @@ export default function MedicinesPage() {
     setSelectedCompartmentId('');
     // Pre-select the compartment this medicine is already assigned to
     const existing = (compartments || []).find(c =>
-      c.medicine_compartments?.some((mc: any) => mc.medicine_id === med.id)
+      getCompartmentMedicineId(c) === med.id
     );
     if (existing) setSelectedCompartmentId(existing.id);
   };
@@ -111,9 +127,11 @@ export default function MedicinesPage() {
 
   const getAssignedCompartment = (med: any) => {
     if (!compartments || !Array.isArray(compartments)) return undefined;
-    return compartments.find(c =>
-      c.medicine_compartments?.some((mc: any) => mc.medicine_id === med.id)
-    );
+    if (med?.medicine_compartments && Array.isArray(med.medicine_compartments) && med.medicine_compartments.length > 0) {
+      const compInfo = med.medicine_compartments[0]?.compartments;
+      if (compInfo) return compInfo;
+    }
+    return compartments.find(c => getCompartmentMedicineId(c) === med.id);
   };
 
   if (loading) {
@@ -312,8 +330,9 @@ export default function MedicinesPage() {
                   <p className="text-slate-400 text-center py-4">No compartments found. Make sure your Medibox device is paired.</p>
                 ) : (
                   (compartments || []).map((comp) => {
-                    const occupiedBy = comp.medicine_compartments?.[0]?.medicines?.name;
-                    const isOccupiedByOther = occupiedBy && comp.medicine_compartments?.[0]?.medicine_id !== assignMed.id;
+                    const occupiedBy = getCompartmentMedicineName(comp);
+                    const occupiedMedId = getCompartmentMedicineId(comp);
+                    const isOccupiedByOther = occupiedBy && occupiedMedId !== assignMed.id;
                     const isSelected = selectedCompartmentId === comp.id;
 
                     return (
@@ -337,7 +356,7 @@ export default function MedicinesPage() {
                           <p className="text-sm text-slate-500">
                             {isOccupiedByOther
                               ? `Occupied by ${occupiedBy}`
-                              : comp.medicine_compartments?.[0]?.medicine_id === assignMed.id
+                              : occupiedMedId === assignMed.id
                               ? '✅ Currently assigned here'
                               : 'Empty — available'}
                           </p>
