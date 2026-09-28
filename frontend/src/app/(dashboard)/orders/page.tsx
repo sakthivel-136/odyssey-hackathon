@@ -33,7 +33,7 @@ export default function OrdersPage() {
   const getContainersForPlan = (plan: string) => {
     if (plan === 'Basic') return premiumAddon ? 11 : 1;
     if (plan === 'Pro') return premiumAddon ? 13 : 3;
-    if (plan === 'Ultra') return 6; // Ultra always has it
+    if (plan === 'Ultra') return premiumAddon ? 16 : 6;
     return 3;
   };
 
@@ -172,12 +172,12 @@ export default function OrdersPage() {
             Complete {selectedPlan} Plan Order <ArrowRight className="w-5 h-5 text-slate-400"/>
           </h2>
           
-          {(selectedPlan === 'Basic' || selectedPlan === 'Pro') && (
+          {selectedPlan && (
             <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-xl mb-6 flex items-start gap-3 cursor-pointer" onClick={() => setPremiumAddon(!premiumAddon)}>
               <input type="checkbox" checked={premiumAddon} onChange={() => {}} className="mt-1 w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500" />
               <div>
                 <p className="font-bold text-indigo-900">Add Premium Alert Package (+₹150/mo)</p>
-                <p className="text-sm text-indigo-700 mt-1">Unlock AI Insights, Voice Calls, and Unlimited SMS alerts for your {selectedPlan} plan.</p>
+                <p className="text-sm text-indigo-700 mt-1">Unlock AI Insights, Voice Calls, and Unlimited SMS alerts for your Smart Medibox.</p>
               </div>
             </div>
           )}
@@ -193,7 +193,7 @@ export default function OrdersPage() {
             </div>
 
             <button disabled={submitting} type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
-              <PackageOpen className="w-6 h-6" /> {submitting ? 'Processing Payment...' : `Subscribe to ${selectedPlan} Plan (₹${selectedPlan === 'Ultra' ? '799' : selectedPlan === 'Pro' ? (premiumAddon ? 549 : 399) : (premiumAddon ? 349 : 199)}/mo)`}
+              <PackageOpen className="w-6 h-6" /> {submitting ? 'Processing Payment...' : `Purchase Hardware (₹${selectedPlan === 'Ultra' ? '7,000' : selectedPlan === 'Pro' ? '5,000' : '4,500'})${premiumAddon ? ' + Software Add-on (₹150/mo)' : ''}`}
             </button>
           </form>
         </motion.div>
@@ -214,7 +214,7 @@ export default function OrdersPage() {
                 <div>
                   <div className="flex items-center gap-3 mb-1">
                     <h3 className="font-bold text-lg text-slate-900">{order.box_name}</h3>
-                    <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-bold">{order.num_containers === 1 ? 'Basic' : order.num_containers === 11 ? 'Basic + AI' : order.num_containers === 6 ? 'Ultra' : order.num_containers === 13 ? 'Pro + AI' : 'Pro'} Plan</span>
+                    <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-bold">{order.num_containers === 1 ? 'Basic' : order.num_containers === 11 ? 'Basic + AI' : order.num_containers === 6 ? 'Ultra' : order.num_containers === 16 ? 'Ultra + AI' : order.num_containers === 13 ? 'Pro + AI' : 'Pro'} Plan</span>
                   </div>
                   <p className="text-sm text-slate-500">{order.num_containers > 10 ? order.num_containers - 10 : order.num_containers} Compartments Hardware • Ordered on {new Date(order.created_at).toLocaleDateString()}</p>
                 </div>

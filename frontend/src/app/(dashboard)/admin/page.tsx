@@ -32,26 +32,32 @@ export default function AdminSaaSDashboard() {
 
   // Calculate Metrics
   const basicOrders = orders.filter(o => o.num_containers === 1 || o.num_containers === 11);
-  const proOrders = orders.filter(o => o.num_containers === 3 || o.num_containers === 13 || (o.num_containers !== 1 && o.num_containers !== 11 && o.num_containers !== 6));
-  const ultraOrders = orders.filter(o => o.num_containers === 6);
+  const proOrders = orders.filter(o => o.num_containers === 3 || o.num_containers === 13 || (o.num_containers !== 1 && o.num_containers !== 11 && o.num_containers !== 6 && o.num_containers !== 16));
+  const ultraOrders = orders.filter(o => o.num_containers === 6 || o.num_containers === 16);
 
-  const calculateRevenue = (orderList: any[]) => {
+    const calculateMRR = (orderList: any[]) => {
     return orderList.reduce((acc, order) => {
-      if (order.num_containers === 1) return acc + 199;
-      if (order.num_containers === 11) return acc + 199 + 150;
-      if (order.num_containers === 3) return acc + 399;
-      if (order.num_containers === 13) return acc + 399 + 150;
-      if (order.num_containers === 6) return acc + 799;
-      return acc + 399; // Pro is default fallback
+      if (order.num_containers > 10) return acc + 150; // Premium Add-on is 150/mo
+      return acc;
+    }, 0);
+  };
+  
+  const calculateHardwareSales = (orderList: any[]) => {
+    return orderList.reduce((acc, order) => {
+      if (order.num_containers === 1 || order.num_containers === 11) return acc + 4500;
+      if (order.num_containers === 6 || order.num_containers === 16) return acc + 7000;
+      return acc + 5000; // Pro is default fallback
     }, 0);
   };
 
-  const totalRevenue = calculateRevenue(orders);
+  const totalMRR = calculateMRR(orders);
+  const totalHardwareSales = calculateHardwareSales(orders);
   
   // Today's Revenue
   const today = new Date().toISOString().split('T')[0];
   const todaysOrders = orders.filter(o => o.created_at.startsWith(today));
-  const todayRevenue = calculateRevenue(todaysOrders);
+  const todayMRR = calculateMRR(todaysOrders);
+  const todayHardwareSales = calculateHardwareSales(todaysOrders);
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-20 md:pb-0">
@@ -131,14 +137,15 @@ export default function AdminSaaSDashboard() {
                 <th className="p-4 pl-6">Customer</th>
                 <th className="p-4">Device ID</th>
                 <th className="p-4">Plan Tier</th>
-                <th className="p-4">MRR</th>
+                <th className="p-4">Hardware</th>
+<th className="p-4">MRR (Add-on)</th>
                 <th className="p-4">Joined</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {orders.map(order => {
-                const plan = order.num_containers === 1 ? 'Basic' : order.num_containers === 11 ? 'Basic+AI' : order.num_containers === 6 ? 'Ultra' : order.num_containers === 13 ? 'Pro+AI' : 'Pro';
-                const price = plan === 'Basic' ? 199 : plan === 'Basic+AI' ? 349 : plan === 'Ultra' ? 799 : plan === 'Pro+AI' ? 549 : 399;
+                const plan = order.num_containers === 1 ? 'Basic' : order.num_containers === 11 ? 'Basic+AI' : order.num_containers === 6 ? 'Ultra' : order.num_containers === 16 ? 'Ultra+AI' : order.num_containers === 13 ? 'Pro+AI' : 'Pro';
+                const hwPrice = plan.includes('Basic') ? 4500 : plan.includes('Ultra') ? 7000 : 5000; const hasAddon = plan.includes('+AI');
                 
                 return (
                   <tr key={order.id} className="hover:bg-slate-50 transition">
@@ -150,15 +157,17 @@ export default function AdminSaaSDashboard() {
                       {plan === 'Pro' && <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">Pro</span>}
                       {plan === 'Pro+AI' && <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">Pro + Addon</span>}
                       {plan === 'Ultra' && <span className="bg-purple-200 text-purple-900 px-3 py-1 rounded-full text-xs font-bold">Ultra</span>}
+{plan === 'Ultra+AI' && <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">Ultra + Addon</span>}
                     </td>
-                    <td className="p-4 font-bold text-slate-700">₹{price}</td>
+                    <td className="p-4 font-bold text-slate-700">₹{hwPrice}</td>
+<td className="p-4 font-bold text-emerald-600">{hasAddon ? '₹150' : '-'}</td>
                     <td className="p-4 text-slate-400 text-sm">{new Date(order.created_at).toLocaleDateString()}</td>
                   </tr>
                 )
               })}
               {orders.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-500 font-medium">No subscribers found.</td>
+                  <td colSpan={6} className="p-8 text-center text-slate-500 font-medium">No subscribers found.</td>
                 </tr>
               )}
             </tbody>
