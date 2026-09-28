@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PermissionModal } from '@/components/PermissionModal';
 
 const USER_NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -161,6 +162,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       <main className="flex-1 md:ml-64 bg-slate-50 min-h-screen">
+        <PermissionModal />
         <div className="p-4 md:p-8 pt-6">
           {children}
         </div>

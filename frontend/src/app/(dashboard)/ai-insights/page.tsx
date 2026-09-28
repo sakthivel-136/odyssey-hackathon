@@ -2,8 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { BrainCircuit, Sparkles, RefreshCw, AlertTriangle, CheckCircle2, Copy, Check, Clock, Pill, ShieldAlert, FileText } from 'lucide-react';
+import { BrainCircuit, Sparkles, RefreshCw, AlertTriangle, CheckCircle2, Copy, Check, Clock, Pill, ShieldAlert, FileText, Info, Lightbulb, HeartPulse } from 'lucide-react';
 import { motion } from 'framer-motion';
+
+type MedicineGuide = {
+  name: string;
+  purpose: string;
+  how_to_take: string;
+  best_time: string;
+  refill_status: string;
+  safety_tip: string;
+};
 
 type AIPoint = {
   category: 'REFILL_WARNING' | 'SCHEDULE_OPTIMIZATION' | 'SAFETY_INTERACTION' | 'CAREGIVER_SUMMARY' | string;
@@ -16,6 +25,7 @@ type AIInsightData = {
   patient_status: string;
   overview_title: string;
   overview_summary: string;
+  medicine_guides?: MedicineGuide[];
   points: AIPoint[];
 };
 
@@ -60,8 +70,9 @@ export default function AIInsightsPage() {
 
   const handleCopyDoctorSummary = () => {
     if (!data) return;
-    const summaryPoint = data.points?.find(p => p.category === 'CAREGIVER_SUMMARY') || data.points?.[0];
-    const textToCopy = `Smart Medibox Clinical Summary:\nScore: ${data.compliance_score}%\nStatus: ${data.patient_status}\n\nOverview:\n${data.overview_summary}\n\nKey Observations:\n` +
+    const textToCopy = `Smart Medibox Clinical Summary:\nScore: ${data.compliance_score}%\nStatus: ${data.patient_status}\n\nOverview:\n${data.overview_summary}\n\nTablet Guides:\n` +
+      (data.medicine_guides || []).map(m => `• ${m.name}: ${m.purpose} | How to take: ${m.how_to_take}`).join('\n') +
+      `\n\nKey Observations:\n` +
       (data.points || []).map(p => `• [${p.title}]: ${p.detail}`).join('\n');
       
     navigator.clipboard.writeText(textToCopy);
@@ -73,7 +84,7 @@ export default function AIInsightsPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
         <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-        <p className="text-slate-500 font-bold text-sm animate-pulse">Analyzing dosage history & telemetry with AI...</p>
+        <p className="text-slate-500 font-bold text-sm animate-pulse">Analyzing real-world medicine usage with AI...</p>
       </div>
     );
   }
@@ -119,9 +130,9 @@ export default function AIInsightsPage() {
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
             <BrainCircuit className="w-8 h-8 text-indigo-600" />
-            AI Health & Compliance Engine
+            AI Health & Medicine Guide
           </h1>
-          <p className="text-slate-500 mt-1 text-base">Real-time clinical analysis powered by LLM AI & Smart Medibox Telemetry.</p>
+          <p className="text-slate-500 mt-1 text-base">Real-world usage instructions, simple guidance, and clinical compliance analysis.</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -182,10 +193,77 @@ export default function AIInsightsPage() {
         </motion.div>
       )}
 
+      {/* Real-World Medicine Usage Guides */}
+      {data?.medicine_guides && data.medicine_guides.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Pill className="w-6 h-6 text-indigo-600" />
+            <h3 className="text-xl font-black text-slate-900">Real-World Tablet Usage Guides (Simple English)</h3>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6">
+            {data.medicine_guides.map((guide, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.1 }}
+                className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4"
+              >
+                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold">
+                      <HeartPulse className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xl font-black text-slate-900">{guide.name}</h4>
+                      <p className="text-xs text-indigo-600 font-bold">{guide.refill_status}</p>
+                    </div>
+                  </div>
+                  <span className="bg-slate-100 text-slate-700 text-xs font-bold px-3 py-1 rounded-full">
+                    Prescription Guide
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-1">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Info className="w-3.5 h-3.5 text-blue-500" /> Purpose & Usage
+                    </p>
+                    <p className="text-slate-800 font-semibold">{guide.purpose}</p>
+                  </div>
+
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-1">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Lightbulb className="w-3.5 h-3.5 text-amber-500" /> How to Take
+                    </p>
+                    <p className="text-slate-800 font-semibold">{guide.how_to_take}</p>
+                  </div>
+
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-1">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-emerald-500" /> Best Time
+                    </p>
+                    <p className="text-slate-800 font-semibold">{guide.best_time}</p>
+                  </div>
+
+                  <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100 space-y-1">
+                    <p className="text-xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1.5">
+                      <ShieldAlert className="w-3.5 h-3.5 text-amber-600" /> Safety Tip
+                    </p>
+                    <p className="text-amber-900 font-semibold">{guide.safety_tip}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Point-by-Point Structured Cards */}
       {data?.points && (
         <div className="space-y-4">
-          <h3 className="text-xl font-black text-slate-900">Key AI Clinical & Operational Insights</h3>
+          <h3 className="text-xl font-black text-slate-900">Key Clinical Observations & Refill Projections</h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {data.points.map((pt, idx) => (
