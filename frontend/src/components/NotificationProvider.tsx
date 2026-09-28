@@ -9,7 +9,16 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const router = useRouter();
 
   useEffect(() => {
-    if ('Notification' in window) {
+    // 1. Register Service Worker for Mobile OS System Notification Bar
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').then((reg) => {
+        console.log('Mobile Service Worker registered for Medibox Push:', reg.scope);
+      }).catch((err) => {
+        console.warn('Service Worker registration failed:', err);
+      });
+    }
+
+    if (typeof window !== 'undefined' && 'Notification' in window) {
       setPermission(Notification.permission);
     }
 
@@ -28,7 +37,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         const notifications = await res.json();
         
         if (notifications && Array.isArray(notifications) && notifications.length > 0) {
-          // Read previously shown notification IDs from localStorage
           const storedShown = localStorage.getItem('medibox_shown_notif_ids');
           const shownIds: string[] = storedShown ? JSON.parse(storedShown) : [];
           
@@ -36,32 +44,47 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           const updatedShownIds = [...shownIds];
 
           for (const notification of notifications) {
-            // Check if this notification was already shown
             if (!shownIds.includes(notification.id)) {
               updatedShownIds.push(notification.id);
               newlyShownCount++;
 
-              // Trigger native push notification banner if permission is granted
-              if (permission === 'granted' || (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted')) {
+              // TRIGGER MOBILE OS SYSTEM NOTIFICATION BAR ALERT VIA SERVICE WORKER
+              let shownViaSW = false;
+              if ('serviceWorker' in navigator) {
+                try {
+                  const reg = await navigator.serviceWorker.ready;
+                  await reg.showNotification(notification.title, {
+                    body: notification.message,
+                    icon: '/icon-192.png',
+                    badge: '/icon-192.png',
+                    vibrate: [300, 100, 300],
+                    tag: notification.id,
+                    data: { url: '/notifications' }
+                  });
+                  shownViaSW = true;
+                } catch (swErr) {
+                  console.warn("ServiceWorker showNotification error:", swErr);
+                }
+              }
+
+              // Fallback for standard desktop windows
+              if (!shownViaSW && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
                 try {
                   const nativeNotif = new Notification(notification.title, {
                     body: notification.message,
-                    icon: '/icon.png',
-                    silent: false
+                    icon: '/icon-192.png'
                   });
-                  
                   nativeNotif.onclick = () => {
                     window.focus();
                     router.push('/notifications');
                   };
                 } catch (e) {
-                  console.warn("Failed to pop native push banner:", e);
+                  console.warn("Desktop notification fallback error:", e);
                 }
               }
             }
           }
           
-          // Save updated shown IDs (keep last 50)
           if (newlyShownCount > 0) {
             localStorage.setItem('medibox_shown_notif_ids', JSON.stringify(updatedShownIds.slice(-50)));
           }
@@ -71,7 +94,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       }
     };
 
-    // Poll every 8 seconds
     intervalId = setInterval(pollNotifications, 8000);
     pollNotifications();
 
