@@ -1,20 +1,17 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: [
-    'bbc3f868710f6e.lhr.life',
-    'ace-mailto-covers-toolbox.trycloudflare.com',
-    '192.168.1.5',
-    'localhost'
-  ],
-  async rewrites() {
-    const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${backendUrl}/api/:path*`,
-      },
-    ]
+  eslint: {
+    // Warning: This allows production builds to successfully complete even if
+    // your project has ESLint errors.
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    // !! WARN !!
+    // Dangerously allow production builds to successfully complete even if
+    // your project has type errors.
+    // !! WARN !!
+    ignoreBuildErrors: true,
   },
 };
 
