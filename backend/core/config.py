@@ -4,7 +4,7 @@ from typing import Optional
 class Settings(BaseSettings):
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
-    MQTT_BROKER: str = "test.mosquitto.org"
+    MQTT_BROKER: str = "broker.hivemq.com"
     MQTT_PORT: int = 1883
     MQTT_USERNAME: Optional[str] = None
     MQTT_PASSWORD: Optional[str] = None

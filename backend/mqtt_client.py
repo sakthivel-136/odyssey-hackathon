@@ -57,7 +57,7 @@ class MqttManager:
             
             if msg_type == "ack":
                 self.handle_ack(supabase, device_id, data)
-            elif msg_type == "event":
+            elif msg_type == "event" or msg_type == "events":
                 self.handle_event(supabase, device_id, data)
             elif msg_type == "status":
                 self.handle_status(supabase, device_id, data)
