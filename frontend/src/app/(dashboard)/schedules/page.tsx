@@ -2,353 +2,371 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Calendar, Plus, Save, X, Box, Clock, Pill } from 'lucide-react';
+import { Calendar, Plus, X, Clock, Pill, CheckCircle2, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function SchedulesPage() {
   const [schedules, setSchedules] = useState<any[]>([]);
+  const [medicines, setMedicines] = useState<any[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
-  const [compartments, setCompartments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState('');
 
   const [isCreating, setIsCreating] = useState(false);
-  const [newSchedule, setNewSchedule] = useState({
-    device_id: '',
-    schedule_time: '08:00',
-    items: [] as any[]
-  });
+  const [saving, setSaving] = useState(false);
+
+  // New schedule state
+  const [scheduleTime, setScheduleTime] = useState('08:00');
+  const [deviceId, setDeviceId] = useState('');
+  // Selected medicines with dose quantity: [ { medicine_id, dose_quantity } ]
+  const [selectedMeds, setSelectedMeds] = useState<any[]>([]);
 
   useEffect(() => {
     fetchData();
   }, []);
 
   const fetchData = async () => {
+    setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
-    const headers = { 'Authorization': `Bearer ${session?.access_token}` };
-    
+    if (!session) return;
+    const t = session.access_token;
+    setToken(t);
+    const headers = { 'Authorization': `Bearer ${t}` };
+
     try {
-      const schRes = await fetch(`/api/schedules`, { headers });
+      // Fetch schedules
+      const schRes = await fetch('/api/schedules', { headers });
       if (schRes.ok) setSchedules(await schRes.json());
-      
-      const devRes = await fetch(`/api/devices`, { headers });
+
+      // Fetch devices
+      const devRes = await fetch('/api/devices', { headers });
       if (devRes.ok) {
         const devs = await devRes.json();
         setDevices(devs);
-        if (devs.length > 0) {
-          handleDeviceChange(devs[0].id);
-        }
+        if (devs.length > 0) setDeviceId(devs[0].id);
       }
-    } catch (err) {
-      console.error("Error fetching data:", err);
+
+      // Fetch medicines (only those assigned to a compartment)
+      const medRes = await fetch('/api/medicines', { headers });
+      if (medRes.ok) setMedicines(await medRes.json());
+
+    } catch (e) {
+      console.error(e);
     }
-    
     setLoading(false);
   };
 
-  const handleDeviceChange = async (device_id: string) => {
-    setNewSchedule(prev => ({ ...prev, device_id, items: [] }));
-    const { data: { session } } = await supabase.auth.getSession();
-    const compRes = await fetch(`/api/compartments/${device_id}`, {
-      headers: { 'Authorization': `Bearer ${session?.access_token}` }
-    });
-    if (compRes.ok) {
-      setCompartments(await compRes.json());
+  const toggleMedicine = (medId: string) => {
+    const exists = selectedMeds.find(m => m.medicine_id === medId);
+    if (exists) {
+      setSelectedMeds(selectedMeds.filter(m => m.medicine_id !== medId));
+    } else {
+      setSelectedMeds([...selectedMeds, { medicine_id: medId, dose_quantity: 1 }]);
     }
   };
 
-  const addStep = () => {
-    setNewSchedule({
-      ...newSchedule,
-      items: [
-        ...newSchedule.items,
-        { compartment_id: '', medicine_id: '', dose_quantity: 1, step_order: newSchedule.items.length + 1 }
-      ]
-    });
-  };
-
-  const removeStep = (index: number) => {
-    const updatedItems = [...newSchedule.items];
-    updatedItems.splice(index, 1);
-    updatedItems.forEach((item, i) => {
-      item.step_order = i + 1;
-    });
-    setNewSchedule({ ...newSchedule, items: updatedItems });
+  const updateDoseQty = (medId: string, qty: number) => {
+    setSelectedMeds(selectedMeds.map(m =>
+      m.medicine_id === medId ? { ...m, dose_quantity: qty } : m
+    ));
   };
 
   const saveSchedule = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    const finalizedItems = newSchedule.items.map(item => {
-      if (!item.medicine_id && item.compartment_id) {
-        const comp = compartments.find(c => c.id === item.compartment_id);
-        const medId = comp?.medicine_compartments?.[0]?.medicine_id;
-        return { ...item, medicine_id: medId };
-      }
-      return item;
-    });
+    if (!deviceId || selectedMeds.length === 0 || !scheduleTime) return;
+    setSaving(true);
 
+    // Build schedule_items from selected medicines
+    // The backend will look up which compartment each medicine belongs to
     const payload = {
-      ...newSchedule,
-      schedule_time: newSchedule.schedule_time + ':00', // API might expect HH:MM:SS
-      items: finalizedItems
+      device_id: deviceId,
+      schedule_time: scheduleTime + ':00',
+      medicines: selectedMeds // [ { medicine_id, dose_quantity } ]
     };
 
-    const res = await fetch(`/api/schedules`, {
+    const res = await fetch('/api/schedules', {
       method: 'POST',
-      headers: { 
-        'Authorization': `Bearer ${session?.access_token}`,
-        'Content-Type': 'application/json' 
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(payload)
     });
 
+    setSaving(false);
     if (res.ok) {
       setIsCreating(false);
-      setNewSchedule({ device_id: devices[0]?.id || '', schedule_time: '08:00', items: [] });
+      setSelectedMeds([]);
+      setScheduleTime('08:00');
       fetchData();
     } else {
-      alert("Failed to create schedule.");
+      const err = await res.json();
+      alert('Error: ' + (err.detail || 'Failed to save schedule'));
     }
   };
 
-  if (loading) return (
-    <div className="flex h-[50vh] items-center justify-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-    </div>
-  );
+  const deleteSchedule = async (scheduleId: string) => {
+    if (!confirm('Delete this schedule?')) return;
+    await fetch(`/api/schedules/${scheduleId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    fetchData();
+  };
+
+  const formatTime = (timeStr: string) => {
+    if (!timeStr) return '';
+    const [h, m] = timeStr.split(':');
+    const hour = parseInt(h);
+    return `${hour > 12 ? hour - 12 : hour || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full min-h-[60vh]">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 relative pb-20">
-      <header className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+    <div className="p-6 md:p-8 max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-              <Calendar className="w-7 h-7" />
-            </div>
-            Schedules
+          <h1 className="text-3xl font-black text-slate-900 flex items-center gap-3">
+            <Calendar className="w-8 h-8 text-blue-600" /> Schedules
           </h1>
-          <p className="text-slate-500 mt-2 text-sm font-medium">Manage and automate your medication routine.</p>
+          <p className="text-slate-500 mt-1">Set times and medicines — your Medibox opens each compartment automatically.</p>
         </div>
-        <button 
+        <button
           onClick={() => setIsCreating(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-md hover:shadow-blue-200"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-blue-200"
         >
-          <Plus className="w-5 h-5" />
-          Create
+          <Plus className="w-5 h-5" /> Create Schedule
         </button>
-      </header>
-
-      {/* Existing Schedules */}
-      <div className="space-y-4">
-        {schedules.map((sch) => (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            key={sch.id} 
-            className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row gap-6 items-start"
-          >
-            <div className="md:w-32 shrink-0 text-center md:text-left">
-              <h3 className="text-3xl font-black text-slate-900 tracking-tighter">
-                {sch.schedule_time.substring(0, 5)}
-              </h3>
-              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Daily</p>
-              <div className="mt-4">
-                <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${sch.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
-                  {sch.is_active ? 'Active' : 'Paused'}
-                </span>
-              </div>
-            </div>
-            
-            <div className="flex-1 w-full bg-slate-50/50 rounded-xl p-4 border border-slate-100">
-              <h4 className="font-bold text-slate-400 text-xs uppercase tracking-wider mb-3">Dose Sequence</h4>
-              <div className="space-y-2">
-                {sch.schedule_items.sort((a: any, b: any) => a.step_order - b.step_order).map((item: any) => (
-                  <div key={item.id} className="flex items-center gap-4 bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
-                    <div className="bg-slate-100 text-slate-400 text-xs font-black w-6 h-6 rounded flex items-center justify-center shrink-0">
-                      {item.step_order}
-                    </div>
-                    <div className="flex-1 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
-                        <Pill className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-900 text-sm">{item.medicines?.name || 'Unknown Medicine'}</p>
-                        <p className="text-xs text-slate-500 font-medium">Compartment {item.compartments.compartment_number}</p>
-                      </div>
-                    </div>
-                    <div className="font-black text-slate-900 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 text-sm">
-                      x{item.dose_quantity}
-                    </div>
-                  </div>
-                ))}
-                {sch.schedule_items.length === 0 && (
-                  <div className="text-sm text-slate-400 italic py-2">No items in this schedule.</div>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        ))}
-        
-        {schedules.length === 0 && !isCreating && (
-          <div className="text-center p-16 bg-white border border-slate-100 rounded-3xl shadow-sm">
-            <Calendar className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-slate-900 mb-2">No schedules yet</h3>
-            <p className="text-slate-500 mb-6">Create your first medication schedule to automate dispensing.</p>
-            <button 
-              onClick={() => setIsCreating(true)}
-              className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-2.5 rounded-xl font-medium transition-colors"
-            >
-              Create Schedule
-            </button>
-          </div>
-        )}
       </div>
 
+      {/* How it works callout */}
+      <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-6 text-sm text-blue-800">
+        <strong>How it works:</strong> Select a time and medicines. At schedule time, the Medibox opens <strong>Compartment 1</strong> first. After you take the pill and the IR sensor detects it, it automatically opens <strong>Compartment 2</strong>, and so on.
+      </div>
+
+      {/* Schedules List */}
+      {schedules.length === 0 ? (
+        <div className="text-center py-20 border-2 border-dashed border-slate-200 rounded-2xl">
+          <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <p className="font-bold text-slate-400 text-lg">No Schedules Yet</p>
+          <p className="text-slate-400 text-sm mt-1">Create your first schedule to start automatic dispensing.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {schedules.map((sched) => (
+            <motion.div
+              key={sched.id}
+              layout
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex items-center gap-5"
+            >
+              {/* Time */}
+              <div className="bg-blue-600 text-white rounded-2xl px-5 py-3 text-center min-w-[90px]">
+                <p className="text-2xl font-black leading-none">{formatTime(sched.schedule_time)}</p>
+              </div>
+
+              {/* Steps */}
+              <div className="flex-1">
+                <div className="flex flex-wrap gap-2">
+                  {sched.schedule_items?.map((item: any, idx: number) => (
+                    <div key={idx} className="flex items-center gap-1.5 bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-sm font-bold">
+                      <span className="w-5 h-5 bg-blue-600 text-white rounded-md flex items-center justify-center text-xs font-black">
+                        {idx + 1}
+                      </span>
+                      {item.medicines?.name || item.compartments?.compartment_number
+                        ? (item.medicines?.name || `Comp ${item.compartments?.compartment_number}`)
+                        : `Step ${idx + 1}`}
+                      {item.dose_quantity > 1 && <span className="text-blue-600">×{item.dose_quantity}</span>}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-400 mt-2 font-medium">
+                  {sched.is_active ? '🟢 Active' : '⚫ Inactive'} · Opens compartments one by one after each pill is taken
+                </p>
+              </div>
+
+              {/* Delete */}
+              <button
+                onClick={() => deleteSchedule(sched.id)}
+                className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      {/* Create Schedule Modal */}
       <AnimatePresence>
         {isCreating && (
           <>
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40"
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/40 z-40"
               onClick={() => setIsCreating(false)}
             />
-            
-            <motion.div 
-              initial={{ opacity: 0, y: 100, scale: 0.95 }}
+            <motion.div
+              initial={{ opacity: 0, y: 60, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 100, scale: 0.95 }}
-              className="fixed inset-x-4 top-20 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-[600px] bg-white rounded-3xl shadow-2xl z-50 overflow-hidden flex flex-col max-h-[80vh]"
+              exit={{ opacity: 0, y: 60, scale: 0.97 }}
+              className="fixed inset-x-4 top-16 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-[580px] bg-white rounded-3xl shadow-2xl z-50 overflow-hidden flex flex-col max-h-[85vh]"
             >
-              <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-white">
-                <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Create Schedule</h2>
-                <button 
-                  onClick={() => setIsCreating(false)} 
-                  className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-900 transition-colors"
-                >
+              {/* Modal Header */}
+              <div className="flex justify-between items-center p-6 border-b border-slate-100">
+                <h2 className="text-2xl font-black text-slate-900">Create Schedule</h2>
+                <button onClick={() => setIsCreating(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="p-6 overflow-y-auto bg-slate-50/50 flex-1">
-                <div className="space-y-6">
-                  {/* Device & Time */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Select Device</label>
-                      <select 
-                        value={newSchedule.device_id}
-                        onChange={(e) => handleDeviceChange(e.target.value)}
-                        className="w-full p-3.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-sm"
-                      >
-                        <option value="" disabled>Choose Device</option>
-                        {devices.map(d => (
-                          <option key={d.id} value={d.id}>{d.device_name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5" /> Time
-                      </label>
-                      <input 
-                        type="time" 
-                        value={newSchedule.schedule_time}
-                        onChange={(e) => setNewSchedule({...newSchedule, schedule_time: e.target.value})}
-                        className="w-full p-3.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-sm"
-                      />
-                    </div>
+              <div className="p-6 overflow-y-auto flex-1 space-y-6">
+
+                {/* Device + Time */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Device</label>
+                    <select
+                      value={deviceId}
+                      onChange={e => setDeviceId(e.target.value)}
+                      className="w-full p-3.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {devices.map(d => (
+                        <option key={d.id} value={d.id}>{d.device_name || d.device_id}</option>
+                      ))}
+                    </select>
                   </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" /> Time
+                    </label>
+                    <input
+                      type="time"
+                      value={scheduleTime}
+                      onChange={e => setScheduleTime(e.target.value)}
+                      className="w-full p-3.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
 
-                  {/* Medications */}
-                  {newSchedule.device_id && (
-                    <div className="space-y-3">
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">Medications to Dispense</label>
-                      
-                      <div className="space-y-3">
-                        <AnimatePresence>
-                          {newSchedule.items.map((item, index) => (
-                            <motion.div 
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: 'auto' }}
-                              exit={{ opacity: 0, height: 0 }}
-                              key={index} 
-                              className="flex gap-3 items-center bg-white p-3 rounded-xl border border-slate-200 shadow-sm overflow-hidden"
-                            >
-                              <div className="bg-slate-100 text-slate-500 w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm shrink-0">
-                                {index + 1}
-                              </div>
-                              
-                              <div className="flex-1">
-                                <select 
-                                  value={item.compartment_id}
-                                  onChange={(e) => {
-                                    const newItems = [...newSchedule.items];
-                                    newItems[index].compartment_id = e.target.value;
-                                    setNewSchedule({...newSchedule, items: newItems});
-                                  }}
-                                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                  <option value="" disabled>Select Medicine...</option>
-                                  {compartments.map(c => {
-                                    const medName = c.medicine_compartments?.[0]?.medicines?.name || 'Empty Compartment';
-                                    return (
-                                      <option key={c.id} value={c.id}>{medName} (Comp {c.compartment_number})</option>
-                                    );
-                                  })}
-                                </select>
-                              </div>
+                {/* Medicine Selection */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+                    Select Medicines to Dispense
+                  </label>
 
-                              <div className="w-20">
-                                <input 
-                                  type="number" 
-                                  min="1"
-                                  value={item.dose_quantity}
-                                  onChange={(e) => {
-                                    const newItems = [...newSchedule.items];
-                                    newItems[index].dose_quantity = parseInt(e.target.value) || 1;
-                                    setNewSchedule({...newSchedule, items: newItems});
-                                  }}
-                                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-center outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                              </div>
+                  {medicines.length === 0 ? (
+                    <p className="text-slate-400 text-sm text-center py-4 border border-dashed border-slate-200 rounded-xl">
+                      No medicines found. Add medicines first and assign them to compartments.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {medicines.map((med, idx) => {
+                        const selected = selectedMeds.find(m => m.medicine_id === med.id);
+                        const assignedComp = med.medicine_compartments?.[0]?.compartments?.compartment_number;
 
-                              <button 
-                                onClick={() => removeStep(index)}
-                                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </motion.div>
-                          ))}
-                        </AnimatePresence>
-                      </div>
-                      
-                      <button 
-                        onClick={addStep}
-                        className="w-full py-3.5 border-2 border-dashed border-slate-200 bg-white text-slate-500 font-bold rounded-xl hover:border-blue-400 hover:text-blue-600 transition-all flex items-center justify-center gap-2 mt-2"
-                      >
-                        <Plus className="w-5 h-5" /> Add Medication
-                      </button>
+                        return (
+                          <div
+                            key={med.id}
+                            className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all cursor-pointer ${
+                              selected
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-slate-200 hover:border-blue-300'
+                            }`}
+                            onClick={() => toggleMedicine(med.id)}
+                          >
+                            {/* Step number */}
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-sm shrink-0 ${selected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                              {selected ? (selectedMeds.findIndex(m => m.medicine_id === med.id) + 1) : idx + 1}
+                            </div>
+
+                            {/* Medicine Info */}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-slate-900">{med.name}</p>
+                              <p className="text-xs text-slate-500">
+                                {med.strength} · {med.dosage_form}
+                                {assignedComp
+                                  ? <span className="ml-2 text-green-600 font-bold">→ Compartment {assignedComp}</span>
+                                  : <span className="ml-2 text-amber-500 font-bold">⚠ Not assigned to compartment</span>
+                                }
+                              </p>
+                            </div>
+
+                            {/* Dose Quantity */}
+                            {selected && (
+                              <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
+                                <button
+                                  onClick={() => updateDoseQty(med.id, Math.max(1, (selected.dose_quantity || 1) - 1))}
+                                  className="w-7 h-7 rounded-lg bg-white border border-slate-200 font-black text-slate-600 hover:bg-slate-50 flex items-center justify-center"
+                                >-</button>
+                                <span className="w-6 text-center font-black text-slate-900">{selected.dose_quantity}</span>
+                                <button
+                                  onClick={() => updateDoseQty(med.id, (selected.dose_quantity || 1) + 1)}
+                                  className="w-7 h-7 rounded-lg bg-white border border-slate-200 font-black text-slate-600 hover:bg-slate-50 flex items-center justify-center"
+                                >+</button>
+                              </div>
+                            )}
+
+                            {selected && <CheckCircle2 className="w-5 h-5 text-blue-600 shrink-0" />}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
+
+                {/* Preview */}
+                {selectedMeds.length > 0 && (
+                  <div className="bg-slate-50 rounded-2xl p-4">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Dispensing Order Preview</p>
+                    <div className="space-y-2">
+                      {selectedMeds.map((sm, i) => {
+                        const med = medicines.find(m => m.id === sm.medicine_id);
+                        const comp = med?.medicine_compartments?.[0]?.compartments?.compartment_number;
+                        return (
+                          <div key={sm.medicine_id} className="flex items-center gap-3 text-sm">
+                            <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center font-black text-xs">{i + 1}</span>
+                            <span className="font-bold text-slate-900">{med?.name}</span>
+                            <span className="text-slate-400">×{sm.dose_quantity}</span>
+                            {comp
+                              ? <span className="ml-auto text-green-600 font-bold text-xs">Compartment {comp} opens</span>
+                              : <span className="ml-auto text-red-500 font-bold text-xs">⚠ No compartment!</span>
+                            }
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-3">Each compartment opens only after the previous pill is taken.</p>
+                  </div>
+                )}
               </div>
 
-              <div className="p-6 bg-white border-t border-slate-100 flex justify-end gap-3">
-                <button 
+              {/* Footer */}
+              <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
+                <button
                   onClick={() => setIsCreating(false)}
-                  className="px-6 py-3 rounded-xl font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                  className="px-6 py-3 rounded-xl font-bold text-slate-600 hover:bg-slate-100"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={saveSchedule}
-                  disabled={!newSchedule.device_id || newSchedule.items.length === 0}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 transition-all hover:shadow-lg hover:shadow-blue-200 disabled:opacity-50 disabled:hover:shadow-none"
+                  disabled={!deviceId || selectedMeds.length === 0 || saving}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 transition-all"
                 >
-                  <Save className="w-5 h-5" /> Save Schedule
+                  {saving
+                    ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    : <CheckCircle2 className="w-5 h-5" />
+                  }
+                  Save Schedule
                 </button>
               </div>
             </motion.div>
