@@ -41,15 +41,25 @@ class TestCommandReq(BaseModel):
 def get_compartments(device_id: str, user = Depends(get_current_user)):
     supabase = get_supabase()
     
-    # Verify ownership
-    dev_res = supabase.table("devices").select("id").eq("owner_id", user.id).execute()
-    device_ids = [str(d["id"]) for d in dev_res.data]
-    
-    if device_id not in device_ids:
-        raise HTTPException(status_code=403, detail="Not authorized to access this device")
+    try:
+        # Verify ownership
+        dev_res = supabase.table("devices").select("id").eq("owner_id", user.id).execute()
+        device_ids = [str(d["id"]) for d in dev_res.data] if dev_res.data else []
         
-    comps = supabase.table("compartments").select("*, medicine_compartments(*, medicines(*))").eq("device_id", device_id).order("compartment_number").execute()
-    return comps.data
+        if device_ids and device_id not in device_ids:
+            raise HTTPException(status_code=403, detail="Not authorized to access this device")
+            
+        comps = supabase.table("compartments").select("*, medicine_compartments(*, medicines(*))").eq("device_id", device_id).order("compartment_number").execute()
+        return comps.data or []
+    except HTTPException:
+        raise
+    except Exception as e:
+        # If transient socket/read error occurred, reset and retry
+        from database import reset_supabase
+        reset_supabase()
+        supabase = get_supabase()
+        comps = supabase.table("compartments").select("*, medicine_compartments(*, medicines(*))").eq("device_id", device_id).order("compartment_number").execute()
+        return comps.data or []
 
 @router.post("/assign")
 def assign_medicine(req: AssignMedicineReq, user = Depends(get_current_user)):
