@@ -62,7 +62,7 @@ export default function AdminPendingOrdersPage() {
                 <h3 className="font-bold text-xl text-slate-900">{order.customer_name}</h3>
                 <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest flex items-center gap-1"><Clock className="w-3 h-3"/> Pending</span>
               </div>
-              <p className="text-sm text-slate-500 font-medium">Device: <span className="text-slate-700">{order.box_name}</span> • {order.num_containers} Compartments</p>
+              <p className="text-sm text-slate-500 font-medium">Device: <span className="text-slate-700">{order.box_name}</span> • {order.num_containers > 10 ? order.num_containers - 10 : order.num_containers} Compartments</p>
               <p className="text-xs text-slate-400 mt-1">Ordered on: {new Date(order.created_at).toLocaleString()}</p>
             </div>
             
