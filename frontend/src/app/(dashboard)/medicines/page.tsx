@@ -25,9 +25,20 @@ export default function MedicinesPage() {
 
   const fetchData = async () => {
     const { data: { session } } = await supabase.auth.getSession();
-    const { data, error } = await supabase.from("medicines").select("*, medicine_compartments(*, compartments(*, devices(*)))").order('created_at', { ascending: false });
-    if (data) setMedicines(data);
-    setLoading(false);
+    if (!session) return;
+    try {
+      const res = await fetch('/api/medicines', {
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMedicines(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {

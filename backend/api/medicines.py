@@ -20,7 +20,7 @@ class MedicineCreateReq(BaseModel):
 @router.get("")
 def get_medicines(user = Depends(get_current_user)):
     supabase = get_supabase()
-    res = supabase.table("medicines").select("*").eq("user_id", user.id).execute()
+    res = supabase.table("medicines").select("*, medicine_compartments(*, compartments(*, devices(*)))").eq("user_id", user.id).order("created_at", desc=True).execute()
     return res.data
 
 @router.post("")
