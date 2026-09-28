@@ -79,14 +79,14 @@ export default function AdminSaaSDashboard() {
           <div className="flex items-center gap-2 text-emerald-600 mb-2 font-bold text-sm uppercase tracking-wider">
             <IndianRupee className="w-4 h-4" /> Total MRR (Monthly)
           </div>
-          <div className="text-4xl font-black text-slate-900">₹{totalRevenue.toLocaleString()}</div>
+          <div className="text-4xl font-black text-slate-900">₹{totalMRR.toLocaleString()}</div>
         </div>
 
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-center">
           <div className="flex items-center gap-2 text-blue-600 mb-2 font-bold text-sm uppercase tracking-wider">
             <TrendingUp className="w-4 h-4" /> Today's Sales
           </div>
-          <div className="text-4xl font-black text-slate-900">₹{todayRevenue.toLocaleString()}</div>
+          <div className="text-4xl font-black text-slate-900">₹{(todayHardwareSales + todayMRR).toLocaleString()}</div>
           <div className="text-sm text-slate-500 mt-1">{todaysOrders.length} new subscribers today</div>
         </div>
 
