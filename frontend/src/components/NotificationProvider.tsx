@@ -9,14 +9,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const router = useRouter();
 
   useEffect(() => {
-    // Request permission safely (some browsers block this on mount)
-    if ('Notification' in window && Notification.permission === 'default') {
-      try {
-        Notification.requestPermission().then(setPermission).catch(e => console.warn(e));
-      } catch (e) {
-        console.warn("Could not request notification permission on mount:", e);
-      }
-    } else if ('Notification' in window) {
+    if ('Notification' in window) {
       setPermission(Notification.permission);
     }
 
@@ -34,49 +27,52 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         
         const notifications = await res.json();
         
-        if (notifications && notifications.length > 0) {
-          const idsToMarkRead = [];
+        if (notifications && Array.isArray(notifications) && notifications.length > 0) {
+          // Read previously shown notification IDs from localStorage
+          const storedShown = localStorage.getItem('medibox_shown_notif_ids');
+          const shownIds: string[] = storedShown ? JSON.parse(storedShown) : [];
           
+          let newlyShownCount = 0;
+          const updatedShownIds = [...shownIds];
+
           for (const notification of notifications) {
-            // Only trigger if permission is granted
-            if (permission === 'granted' || Notification.permission === 'granted') {
-              try {
-                const nativeNotif = new Notification(notification.title, {
-                  body: notification.message,
-                  icon: '/icon.png', // Optional icon
-                  silent: true // Prevents NotAllowedError: play() on some browsers
-                });
-                
-                nativeNotif.onclick = () => {
-                  window.focus();
-                  router.push('/notifications');
-                };
-              } catch (e) {
-                console.warn("Failed to show notification:", e);
+            // Check if this notification was already shown
+            if (!shownIds.includes(notification.id)) {
+              updatedShownIds.push(notification.id);
+              newlyShownCount++;
+
+              // Trigger native push notification banner if permission is granted
+              if (permission === 'granted' || (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted')) {
+                try {
+                  const nativeNotif = new Notification(notification.title, {
+                    body: notification.message,
+                    icon: '/icon.png',
+                    silent: false
+                  });
+                  
+                  nativeNotif.onclick = () => {
+                    window.focus();
+                    router.push('/notifications');
+                  };
+                } catch (e) {
+                  console.warn("Failed to pop native push banner:", e);
+                }
               }
             }
-            
-            idsToMarkRead.push(notification.id);
           }
           
-          // Mark as read so we don't notify again
-          await fetch('/api/notifications/mark-read', {
-            method: 'POST',
-            headers: { 
-              'Authorization': `Bearer ${session.access_token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ notification_ids: idsToMarkRead })
-          });
+          // Save updated shown IDs (keep last 50)
+          if (newlyShownCount > 0) {
+            localStorage.setItem('medibox_shown_notif_ids', JSON.stringify(updatedShownIds.slice(-50)));
+          }
         }
       } catch (error) {
         console.error("Error polling notifications:", error);
       }
     };
 
-    // Poll every 10 seconds
-    intervalId = setInterval(pollNotifications, 10000);
-    // Initial poll
+    // Poll every 8 seconds
+    intervalId = setInterval(pollNotifications, 8000);
     pollNotifications();
 
     return () => clearInterval(intervalId);

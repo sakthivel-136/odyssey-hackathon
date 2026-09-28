@@ -5,20 +5,19 @@ from api.auth import get_current_user
 
 router = APIRouter(prefix="/api/notifications", tags=["Notifications"])
 
-@router.get("")
-def get_unread_notifications(user = Depends(get_current_user)):
+def generate_live_notifications(user_id: str):
     supabase = get_supabase()
     
-    # 1. Try DB notifications table
+    # Check DB notifications table first if exists
     try:
-        res = supabase.table("notifications").select("*").eq("user_id", user.id).eq("is_read", False).order("created_at", desc=True).execute()
-        if res.data:
+        res = supabase.table("notifications").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(30).execute()
+        if res.data and len(res.data) > 0:
             return res.data
     except Exception as e:
         pass
 
-    # 2. Dynamic Real-Data Notification Generator (Fallback)
-    dev_res = supabase.table("devices").select("id").eq("owner_id", user.id).execute()
+    # Dynamic Real-Data Notification Generator from dose_events & medicines
+    dev_res = supabase.table("devices").select("id").eq("owner_id", user_id).execute()
     device_ids = [str(d["id"]) for d in dev_res.data]
     
     if not device_ids:
@@ -27,13 +26,13 @@ def get_unread_notifications(user = Depends(get_current_user)):
     notifications = []
     
     events_res = supabase.table("dose_events").select(
-        "*, schedules(*, schedule_items(*, medicines(*))), medicines(name)"
-    ).in_("device_id", device_ids).order("created_at", desc=True).limit(10).execute()
+        "*, schedules(*, schedule_items(*, medicines(*))), medicines(name, strength)"
+    ).in_("device_id", device_ids).order("created_at", desc=True).limit(20).execute()
     
     for ev in events_res.data or []:
         st = ev.get("status")
         created_at = ev.get("created_at") or ""
-        time_str = ev.get("scheduled_time") or "Scheduled Time"
+        time_str = ev.get("scheduled_time") or "Schedule Time"
         
         sched = ev.get("schedules") or {}
         items = sched.get("schedule_items") or []
@@ -71,7 +70,7 @@ def get_unread_notifications(user = Depends(get_current_user)):
                 "created_at": created_at
             })
 
-    meds_res = supabase.table("medicines").select("*").eq("user_id", user.id).execute()
+    meds_res = supabase.table("medicines").select("*").eq("user_id", user_id).execute()
     for m in meds_res.data or []:
         stock = m.get("stock_quantity", 0)
         thresh = m.get("low_stock_threshold", 10)
@@ -87,18 +86,14 @@ def get_unread_notifications(user = Depends(get_current_user)):
 
     return notifications
 
+@router.get("")
+@router.get("/all")
+def get_notifications(user = Depends(get_current_user)):
+    return generate_live_notifications(user.id)
+
 class MarkReadReq(BaseModel):
     notification_ids: list[str]
 
 @router.post("/mark-read")
 def mark_read(req: MarkReadReq, user = Depends(get_current_user)):
-    supabase = get_supabase()
-    try:
-        if req.notification_ids:
-            # Filter out non-uuid dynamic ids
-            uuid_ids = [nid for nid in req.notification_ids if not nid.startswith('notif_')]
-            if uuid_ids:
-                supabase.table("notifications").update({"is_read": True}).in_("id", uuid_ids).execute()
-    except Exception as e:
-        pass
     return {"status": "ok"}
