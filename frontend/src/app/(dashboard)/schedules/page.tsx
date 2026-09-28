@@ -152,7 +152,7 @@ export default function SchedulesPage() {
       </div>
 
       {/* Schedules List */}
-      {schedules.length === 0 ? (
+      {!schedules || schedules.length === 0 ? (
         <div className="text-center py-20 border-2 border-dashed border-slate-200 rounded-2xl">
           <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
           <p className="font-bold text-slate-400 text-lg">No Schedules Yet</p>
@@ -160,7 +160,7 @@ export default function SchedulesPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {schedules.map((sched) => (
+          {(schedules || []).map((sched) => (
             <motion.div
               key={sched.id}
               layout
@@ -239,7 +239,7 @@ export default function SchedulesPage() {
                       onChange={e => setDeviceId(e.target.value)}
                       className="w-full p-3.5 bg-white border border-slate-200 rounded-xl font-medium text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      {devices.map(d => (
+                      {(devices || []).map(d => (
                         <option key={d.id} value={d.id}>{d.device_name || d.device_id}</option>
                       ))}
                     </select>
@@ -263,13 +263,13 @@ export default function SchedulesPage() {
                     Select Medicines to Dispense
                   </label>
 
-                  {medicines.length === 0 ? (
+                  {!medicines || medicines.length === 0 ? (
                     <p className="text-slate-400 text-sm text-center py-4 border border-dashed border-slate-200 rounded-xl">
                       No medicines found. Add medicines first and assign them to compartments.
                     </p>
                   ) : (
                     <div className="space-y-2">
-                      {medicines.map((med, idx) => {
+                      {(medicines || []).map((med, idx) => {
                         const selected = selectedMeds.find(m => m.medicine_id === med.id);
                         const assignedComp = med.medicine_compartments?.[0]?.compartments?.compartment_number;
 

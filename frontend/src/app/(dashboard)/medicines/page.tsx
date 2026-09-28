@@ -86,7 +86,7 @@ export default function MedicinesPage() {
     setAssignMed(med);
     setSelectedCompartmentId('');
     // Pre-select the compartment this medicine is already assigned to
-    const existing = compartments.find(c =>
+    const existing = (compartments || []).find(c =>
       c.medicine_compartments?.some((mc: any) => mc.medicine_id === med.id)
     );
     if (existing) setSelectedCompartmentId(existing.id);
@@ -110,6 +110,7 @@ export default function MedicinesPage() {
   };
 
   const getAssignedCompartment = (med: any) => {
+    if (!compartments || !Array.isArray(compartments)) return undefined;
     return compartments.find(c =>
       c.medicine_compartments?.some((mc: any) => mc.medicine_id === med.id)
     );
@@ -142,7 +143,7 @@ export default function MedicinesPage() {
       </div>
 
       {/* Medicine Cards */}
-      {medicines.length === 0 ? (
+      {!medicines || medicines.length === 0 ? (
         <div className="text-center py-20 border-2 border-dashed border-slate-200 rounded-2xl">
           <Pill className="w-12 h-12 text-slate-300 mx-auto mb-3" />
           <p className="font-bold text-slate-400 text-lg">No Medicines Added</p>
@@ -150,7 +151,7 @@ export default function MedicinesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {medicines.map((med) => {
+          {(medicines || []).map((med) => {
             const assigned = getAssignedCompartment(med);
             return (
               <motion.div
@@ -307,10 +308,10 @@ export default function MedicinesPage() {
               </div>
 
               <div className="p-6 space-y-3">
-                {compartments.length === 0 ? (
+                {!compartments || compartments.length === 0 ? (
                   <p className="text-slate-400 text-center py-4">No compartments found. Make sure your Medibox device is paired.</p>
                 ) : (
-                  compartments.map((comp) => {
+                  (compartments || []).map((comp) => {
                     const occupiedBy = comp.medicine_compartments?.[0]?.medicines?.name;
                     const isOccupiedByOther = occupiedBy && comp.medicine_compartments?.[0]?.medicine_id !== assignMed.id;
                     const isSelected = selectedCompartmentId === comp.id;
