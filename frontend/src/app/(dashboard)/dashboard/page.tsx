@@ -21,13 +21,36 @@ export default function DashboardPage() {
   const [device, setDevice] = useState<any>(null);
   const [schedules, setSchedules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [adherenceRate, setAdherenceRate] = useState<number>(96);
+  const [adherenceRate, setAdherenceRate] = useState<number>(0);
+  const [userName, setUserName] = useState<string>('SAKTHI');
 
   useEffect(() => {
+    // Check local storage for user name
+    const localName = typeof window !== 'undefined' ? localStorage.getItem('user_name') : null;
+    if (localName) setUserName(localName);
+
+    const handleNameUpdated = (e: any) => {
+      if (e.detail) setUserName(e.detail);
+    };
+    window.addEventListener('userNameUpdated', handleNameUpdated);
+
     async function loadData() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       
+      const metaName = session.user.user_metadata?.full_name || session.user.user_metadata?.name;
+      if (metaName) {
+        setUserName(metaName);
+        if (typeof window !== 'undefined') localStorage.setItem('user_name', metaName);
+      } else if (!localName) {
+        if (session.user.email === 'demo@medibox.com') {
+          setUserName('SAKTHI');
+        } else if (session.user.email) {
+          const fallback = session.user.email.split('@')[0];
+          setUserName(fallback.charAt(0).toUpperCase() + fallback.slice(1));
+        }
+      }
+
       // 1. Fetch Adherence Rate from Reports
       (async () => {
         try {
@@ -71,6 +94,10 @@ export default function DashboardPage() {
       setLoading(false);
     }
     loadData();
+
+    return () => {
+      window.removeEventListener('userNameUpdated', handleNameUpdated);
+    };
   }, []);
 
   if (loading) {
@@ -95,11 +122,11 @@ export default function DashboardPage() {
       animate="visible"
       className="max-w-5xl mx-auto space-y-8 pb-20 md:pb-0"
     >
-      {/* 1. Header Greeting with subtle badge */}
+      {/* 1. Header Greeting strictly with Good day, {userName}! */}
       <motion.header variants={staggerItem} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            Medication Dashboard 👋
+            Good day, {userName}! 👋
           </h1>
           <p className="text-slate-500 font-medium mt-1">Real-time status and telemetry for your Smart Medibox.</p>
         </div>

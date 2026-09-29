@@ -18,8 +18,8 @@ def get_adherence_report(user = Depends(get_current_user)):
     
     if not device_ids:
         return {
-            "total": 0, "completed": 0, "missed": 0, "adherence_rate": 100,
-            "weekly_trend": [], "hourly_distribution": [], "inventory_status": [], "uptime": 99.9
+            "total": 0, "completed": 0, "missed": 0, "adherence_rate": 0,
+            "weekly_trend": [], "hourly_distribution": [], "inventory_status": [], "uptime": 0.0
         }
         
     # 2. Query real dose events strictly from database
@@ -38,7 +38,7 @@ def get_adherence_report(user = Depends(get_current_user)):
     missed = len([e for e in processed_events if e.get("calc_status") == "MISSED"])
     
     valid_total = completed + missed
-    adherence_rate = round((completed / valid_total * 100)) if valid_total > 0 else 100
+    adherence_rate = round((completed / valid_total * 100)) if valid_total > 0 else 0
     
     # 3. Compute Weekly Trend (last 7 days strictly from real data)
     today = datetime.now(IST).date()
@@ -59,7 +59,7 @@ def get_adherence_report(user = Depends(get_current_user)):
             "date": day_str,
             "taken": day_taken,
             "missed": day_missed,
-            "adherence": round((day_taken / day_total * 100)) if day_total > 0 else 100
+            "adherence": round((day_taken / day_total * 100)) if day_total > 0 else 0
         })
         
     # 4. Compute Hourly Distribution strictly from real data

@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bell, Camera, CheckCircle2, ShieldCheck, X } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { Bell, Camera, CheckCircle2, ShieldCheck, X, User, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function PermissionModal() {
   const [showModal, setShowModal] = useState(false);
+  const [userName, setUserName] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const [notifState, setNotifState] = useState<'default' | 'granted' | 'denied'>('default');
   const [cameraState, setCameraState] = useState<'default' | 'granted' | 'denied'>('default');
@@ -18,6 +21,7 @@ export function PermissionModal() {
     const storedOptNotif = localStorage.getItem('opt_out_notifications') === 'true';
     const storedOptCam = localStorage.getItem('opt_out_camera') === 'true';
     const storedCamGranted = localStorage.getItem('camera_permission_granted') === 'true';
+    const localName = localStorage.getItem('user_name') || '';
 
     setOptOutNotif(storedOptNotif);
     setOptOutCamera(storedOptCam);
@@ -31,15 +35,29 @@ export function PermissionModal() {
     let cPermission: 'default' | 'granted' | 'denied' = storedCamGranted ? 'granted' : 'default';
     setCameraState(cPermission);
 
-    // Determine if modal should show
-    const needsNotif = nPermission === 'default' && !storedOptNotif;
-    const needsCam = cPermission === 'default' && !storedOptCam;
+    // Fetch user profile from Supabase
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const metaName = session?.user?.user_metadata?.full_name || session?.user?.user_metadata?.name || '';
+        const nameToUse = metaName || localName;
+        if (nameToUse) {
+          setUserName(nameToUse);
+        }
 
-    if (needsNotif || needsCam) {
-      // Delay slightly so it smoothly animates in after login
-      const timer = setTimeout(() => setShowModal(true), 1200);
-      return () => clearTimeout(timer);
-    }
+        const needsNotif = nPermission === 'default' && !storedOptNotif;
+        const needsCam = cPermission === 'default' && !storedOptCam;
+        const needsName = !nameToUse || nameToUse.trim() === '';
+
+        if (needsNotif || needsCam || needsName) {
+          // Delay slightly so it smoothly animates in after login
+          const timer = setTimeout(() => setShowModal(true), 1200);
+          return () => clearTimeout(timer);
+        }
+      } catch (e) {
+        console.warn(e);
+      }
+    })();
   }, []);
 
   const handleRequestNotification = async () => {
@@ -86,7 +104,21 @@ export function PermissionModal() {
     localStorage.setItem('opt_out_camera', checked ? 'true' : 'false');
   };
 
-  const handleDone = () => {
+  const handleDone = async () => {
+    setSaving(true);
+    const trimmed = userName.trim();
+    if (trimmed) {
+      try {
+        localStorage.setItem('user_name', trimmed);
+        await supabase.auth.updateUser({
+          data: { full_name: trimmed, name: trimmed }
+        });
+        window.dispatchEvent(new CustomEvent('userNameUpdated', { detail: trimmed }));
+      } catch (e) {
+        console.warn("Failed to persist user name:", e);
+      }
+    }
+    setSaving(false);
     setShowModal(false);
   };
 
@@ -99,7 +131,7 @@ export function PermissionModal() {
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-6 relative overflow-hidden"
+          className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-5 relative overflow-hidden"
         >
           {/* Header */}
           <div className="flex justify-between items-start">
@@ -108,20 +140,40 @@ export function PermissionModal() {
                 <ShieldCheck className="w-6 h-6" />
               </div>
               <div>
-                <h2 className="text-xl font-black text-slate-900">App Permissions</h2>
-                <p className="text-xs text-slate-500 font-semibold mt-0.5">Enable features for the best Medibox experience.</p>
+                <h2 className="text-xl font-black text-slate-900">Welcome to Smart Medibox</h2>
+                <p className="text-xs text-slate-500 font-semibold mt-0.5">Personalize your profile & enable live device alerts.</p>
               </div>
             </div>
             <button
-              onClick={handleDone}
+              onClick={() => setShowModal(false)}
               className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="space-y-4">
-            {/* 1. Push Notifications Permission Card */}
+          <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+            {/* 1. Name Input Onboarding Card */}
+            <div className="bg-blue-50/70 border border-blue-200/80 rounded-2xl p-4 space-y-2.5">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-blue-600 text-white rounded-xl shadow-sm shrink-0">
+                  <User className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">What should we call you?</h4>
+                  <p className="text-xs text-slate-500">Your name appears in daily greetings and medication alerts.</p>
+                </div>
+              </div>
+              <input
+                type="text"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                placeholder="Enter your name (e.g. SAKTHI)"
+                className="w-full px-3.5 py-2.5 bg-white border border-blue-200 rounded-xl text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+              />
+            </div>
+
+            {/* 2. Push Notifications Permission Card */}
             {notifState === 'default' && (
               <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
@@ -129,9 +181,9 @@ export function PermissionModal() {
                     <motion.div 
                       animate={{ rotate: [-12, 12, -8, 8, 0] }}
                       transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
-                      className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl shadow-sm"
+                      className="p-2.5 bg-indigo-100 text-indigo-600 rounded-xl shadow-sm shrink-0"
                     >
-                      <Bell className="w-5 h-5 text-indigo-600" />
+                      <Bell className="w-4 h-4 text-indigo-600" />
                     </motion.div>
                     <div>
                       <h4 className="font-bold text-slate-900 text-sm">Push Notifications</h4>
@@ -142,7 +194,7 @@ export function PermissionModal() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handleRequestNotification}
-                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition shadow-md shadow-indigo-500/20 shrink-0 cursor-pointer"
+                    className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition shadow-md shadow-indigo-500/20 shrink-0 cursor-pointer"
                   >
                     Allow Alerts
                   </motion.button>
@@ -164,14 +216,14 @@ export function PermissionModal() {
               <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center gap-3 text-emerald-800 text-xs font-bold shadow-sm"
+                className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 flex items-center gap-3 text-emerald-800 text-xs font-bold shadow-sm"
               >
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                <span>Push Notifications Allowed! You will receive live alerts.</span>
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Push Notifications Enabled! You will receive live alerts.</span>
               </motion.div>
             )}
 
-            {/* 2. Camera Access Permission Card */}
+            {/* 3. Camera Access Permission Card */}
             {cameraState === 'default' && (
               <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
@@ -179,9 +231,9 @@ export function PermissionModal() {
                     <motion.div 
                       animate={{ scale: [1, 1.15, 1] }}
                       transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-                      className="p-3 bg-purple-100 text-purple-600 rounded-2xl shadow-sm"
+                      className="p-2.5 bg-purple-100 text-purple-600 rounded-xl shadow-sm shrink-0"
                     >
-                      <Camera className="w-5 h-5 text-purple-600" />
+                      <Camera className="w-4 h-4 text-purple-600" />
                     </motion.div>
                     <div>
                       <h4 className="font-bold text-slate-900 text-sm">Camera Access (QR Pairing)</h4>
@@ -192,7 +244,7 @@ export function PermissionModal() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handleRequestCamera}
-                    className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl transition shadow-md shadow-purple-500/20 shrink-0 cursor-pointer"
+                    className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl transition shadow-md shadow-purple-500/20 shrink-0 cursor-pointer"
                   >
                     Allow Camera
                   </motion.button>
@@ -211,8 +263,8 @@ export function PermissionModal() {
             )}
 
             {cameraState === 'granted' && (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center gap-3 text-emerald-800 text-xs font-bold">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 flex items-center gap-3 text-emerald-800 text-xs font-bold">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>Camera Permission Granted! Ready for QR code pairing.</span>
               </div>
             )}
@@ -222,9 +274,10 @@ export function PermissionModal() {
           <div className="pt-2 flex justify-end">
             <button
               onClick={handleDone}
-              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-2xl text-sm transition shadow-sm"
+              disabled={saving}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-2xl text-sm transition shadow-md shadow-blue-500/20 flex items-center justify-center gap-2"
             >
-              Continue to Dashboard
+              {saving ? 'Saving...' : 'Save & Continue to Dashboard'}
             </button>
           </div>
         </motion.div>

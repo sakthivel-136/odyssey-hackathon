@@ -181,9 +181,15 @@ def get_daily_insight(user = Depends(get_current_user)):
     
     ai_result = generate_ai_insights_llm(user_data)
     
+    # For new users with no dose events recorded yet, enforce 0% adherence
+    valid_events = [e for e in events_res if e.get("status") in ("COMPLETED", "MISSED") or e.get("taken_time")]
+    if not valid_events:
+        ai_result["compliance_score"] = 0
+        ai_result["patient_status"] = "NEW PATIENT"
+    
     # 3. Save into Supabase DB so it persists
     try:
-        score = float(ai_result.get("compliance_score", 92)) / 100.0 if ai_result.get("compliance_score") else 0.92
+        score = float(ai_result.get("compliance_score", 0)) / 100.0 if ai_result.get("compliance_score") is not None else 0.0
         supabase.table("ai_insights").insert({
             "user_id": user.id,
             "insight_type": "DAILY",

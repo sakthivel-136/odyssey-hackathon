@@ -34,11 +34,11 @@ export default function ReportsPage() {
     total: 0,
     completed: 0,
     missed: 0,
-    adherence_rate: 100,
+    adherence_rate: 0,
     weekly_trend: [],
     hourly_distribution: [],
     inventory_status: [],
-    uptime: 99.9
+    uptime: 0.0
   });
   const [loading, setLoading] = useState(true);
 
@@ -116,8 +116,8 @@ export default function ReportsPage() {
           </div>
           <div>
             <h2 className="text-4xl font-black text-slate-900">{data.adherence_rate}%</h2>
-            <p className={`text-xs font-bold mt-2 flex items-center gap-1 ${data.adherence_rate >= 80 ? 'text-emerald-600' : 'text-amber-600'}`}>
-              {data.adherence_rate >= 80 ? '✓ Excellent Adherence' : '⚠ Action Required'}
+            <p className={`text-xs font-bold mt-2 flex items-center gap-1 ${data.total === 0 ? 'text-slate-400' : (data.adherence_rate >= 80 ? 'text-emerald-600' : 'text-amber-600')}`}>
+              {data.total === 0 ? 'No dose events recorded yet' : (data.adherence_rate >= 80 ? '✓ Excellent Adherence' : '⚠ Action Required')}
             </p>
           </div>
         </div>
