@@ -35,6 +35,16 @@ def pair_device(req: PairDeviceReq, user = Depends(get_current_user)):
         "device_status": "ONLINE"
     }).eq("id", device["id"]).execute()
     
+    # 3. Record in device_users table
+    try:
+        supabase.table("device_users").upsert({
+            "device_id": device["id"],
+            "user_id": user.id,
+            "role": "OWNER"
+        }).execute()
+    except Exception as due:
+        logger.warning(f"Could not upsert into device_users: {due}")
+        
     # 4. Optional: Send MQTT command to ESP32 to confirm pairing
     mqtt_manager.publish_command(req.device_id, {
         "command_id": "sys_pair",

@@ -119,37 +119,25 @@ class MqttManager:
                 
                 TWILIO_SID = os.getenv("TWILIO_SID", "AC_DUMMY")
                 TWILIO_TOKEN = os.getenv("TWILIO_TOKEN", "DUMMY_TOKEN")
-                PATIENT_PHONE = os.getenv("TWILIO_TO_PHONE", "+919150372420")
-                CAREGIVER_PHONE = os.getenv("TWILIO_CAREGIVER_PHONE", "")
+                TO_PHONE = os.getenv("TWILIO_TO_PHONE", "+919150372420")
                 FROM_PHONE = os.getenv("TWILIO_FROM_PHONE", "+17372508034")
                 headers = {"Content-Type": "application/x-www-form-urlencoded"}
-
-                # Try loading dynamic phone preferences from user account if available
-                u_id = dev_res.data[0].get("owner_id") if (dev_res.data and dev_res.data[0].get("owner_id")) else None
-                if u_id:
-                    try:
-                        u_res = supabase.auth.admin.get_user_by_id(u_id)
-                        if u_res and hasattr(u_res, "user") and u_res.user:
-                            meta = u_res.user.user_metadata or {}
-                            if meta.get("caregiver_phone"):
-                                CAREGIVER_PHONE = meta["caregiver_phone"]
-                            if meta.get("patient_phone"):
-                                PATIENT_PHONE = meta["patient_phone"]
-                    except Exception:
-                        pass
                 
                 def run_twilio_alert():
-                    # 1. SEND SMS FIRST TO PATIENT (Using Twilio Trial Template)
+                    # 1. SEND SMS FIRST (Using Twilio Trial Template)
                     try:
-                        sms_payload = f"To={urllib.parse.quote(PATIENT_PHONE)}&From={urllib.parse.quote(FROM_PHONE)}&Body=sms_account_alerts"
+                        # Using Twilio Trial predefined template so the SMS actually delivers!
+                        sms_payload = f"To={urllib.parse.quote(TO_PHONE)}&From={urllib.parse.quote(FROM_PHONE)}&Body=sms_account_alerts"
                         sms_url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_SID}/Messages.json"
                         httpx.post(sms_url, headers=headers, content=sms_payload, auth=(TWILIO_SID, TWILIO_TOKEN), timeout=10.0)
-                        logger.info(f"Twilio SMS Sent Successfully to Patient ({PATIENT_PHONE})!")
+                        logger.info("Twilio SMS Sent Successfully!")
                     except Exception as e:
                         logger.error(f"Twilio SMS Failed: {e}")
                         
-                    # 2. TRIGGER VOICE CALL TO PATIENT
-                    patient_call_sid = None
+                    # 2. WAIT 15 SECONDS
+                    time.sleep(15)
+                    
+                    # 3. TRIGGER VOICE CALL
                     try:
                         xml_content = "<Response>"
                         for _ in range(3):
@@ -158,88 +146,15 @@ class MqttManager:
                         xml_content += "</Response>"
                         
                         twimlet_url = 'https://twimlets.com/echo?Twiml=' + urllib.parse.quote(xml_content)
-                        # Timeout=25: rings patient for 25 seconds before reporting status
-                        call_payload = f"To={urllib.parse.quote(PATIENT_PHONE)}&From={urllib.parse.quote(FROM_PHONE)}&Url={urllib.parse.quote(twimlet_url)}&Timeout=25"
+                        call_payload = f"To={urllib.parse.quote(TO_PHONE)}&From={urllib.parse.quote(FROM_PHONE)}&Url={urllib.parse.quote(twimlet_url)}"
                         call_url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_SID}/Calls.json"
                         
-                        resp = httpx.post(call_url, headers=headers, content=call_payload, auth=(TWILIO_SID, TWILIO_TOKEN), timeout=15.0)
-                        if resp.status_code in (200, 201):
-                            patient_call_sid = resp.json().get("sid")
-                            logger.info(f"Twilio Voice Call Placed to Patient ({PATIENT_PHONE}). Call SID: {patient_call_sid}")
-                        else:
-                            logger.error(f"Twilio Voice Call to Patient failed: {resp.text}")
+                        httpx.post(call_url, headers=headers, content=call_payload, auth=(TWILIO_SID, TWILIO_TOKEN), timeout=15.0)
+                        logger.info("Twilio Voice Call Triggered Successfully!")
                     except Exception as e:
-                        logger.error(f"Twilio Voice Call to Patient Failed: {e}")
-                    
-                    # 3. MONITOR CALL STATUS FOR CAREGIVER ESCALATION
-                    target_caregiver = CAREGIVER_PHONE or os.getenv("TWILIO_CAREGIVER_PHONE", "")
-                    if not target_caregiver:
-                        logger.info("No Caregiver Phone configured. Set TWILIO_CAREGIVER_PHONE in env or Settings to enable secondary escalation.")
-                        return
-
-                    patient_attended = False
-                    if patient_call_sid:
-                        status_url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_SID}/Calls/{patient_call_sid}.json"
-                        # Poll call outcome over 35 seconds (checks every 5s)
-                        for _ in range(7):
-                            time.sleep(5)
-                            try:
-                                stat_r = httpx.get(status_url, auth=(TWILIO_SID, TWILIO_TOKEN), timeout=8.0)
-                                if stat_r.status_code == 200:
-                                    c_data = stat_r.json()
-                                    c_status = c_data.get("status")
-                                    c_duration = int(c_data.get("duration") or 0)
-                                    logger.info(f"Patient Call SID {patient_call_sid} status: {c_status}, duration: {c_duration}s")
-                                    
-                                    if c_status == "completed" and c_duration > 3:
-                                        patient_attended = True
-                                        logger.info("✓ Patient answered and attended the call! No caregiver escalation needed.")
-                                        break
-                                    elif c_status in ("no-answer", "busy", "failed", "canceled"):
-                                        patient_attended = False
-                                        logger.warning(f"⚠ Patient did NOT attend call (status: {c_status}). Initiating Caregiver Escalation Call!")
-                                        break
-                            except Exception as pe:
-                                logger.warning(f"Error checking call status: {pe}")
-                    else:
-                        patient_attended = False
-
-                    # 4. IF PATIENT UNATTENDED -> CALL CAREGIVER / GUARDIAN (YOUR NUMBER)
-                    if not patient_attended:
-                        logger.warning(f"🚨 CALLING CAREGIVER NOW: {target_caregiver} (Patient was unattended)!")
-                        try:
-                            # Send Emergency SMS to Caregiver
-                            cg_sms_payload = f"To={urllib.parse.quote(target_caregiver)}&From={urllib.parse.quote(FROM_PHONE)}&Body=sms_account_alerts"
-                            httpx.post(f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_SID}/Messages.json", headers=headers, content=cg_sms_payload, auth=(TWILIO_SID, TWILIO_TOKEN), timeout=10.0)
-
-                            # Place Emergency Voice Call to Caregiver
-                            cg_xml = "<Response>"
-                            for _ in range(3):
-                                cg_xml += f'<Say voice="Google.ta-IN-Standard-A" language="ta-IN">அவசர எச்சரிக்கை. நோயாளி அறை {compartment_num} மாத்திரையை எடுக்கவில்லை மற்றும் தொலைபேசி அழைப்பிற்கு பதிலளிக்கவில்லை. தயவுசெய்து உடனடியாக கவனிக்கவும்.</Say>'
-                                cg_xml += f'<Say voice="Google.en-IN-Standard-A" language="en-IN">EMERGENCY CAREGIVER ALERT. Patient missed dose in compartment {compartment_num} and did NOT answer the phone call. Please check on the patient immediately.</Say>'
-                            cg_xml += "</Response>"
-
-                            cg_twimlet = 'https://twimlets.com/echo?Twiml=' + urllib.parse.quote(cg_xml)
-                            cg_call_payload = f"To={urllib.parse.quote(target_caregiver)}&From={urllib.parse.quote(FROM_PHONE)}&Url={urllib.parse.quote(cg_twimlet)}"
-                            cg_resp = httpx.post(f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_SID}/Calls.json", headers=headers, content=cg_call_payload, auth=(TWILIO_SID, TWILIO_TOKEN), timeout=15.0)
-
-                            if cg_resp.status_code in (200, 201):
-                                logger.info(f"✅ Emergency Caregiver Escalation Call placed successfully to {target_caregiver}!")
-                            else:
-                                logger.error(f"Caregiver call failed: {cg_resp.text}")
-
-                            if u_id:
-                                supabase.table("notifications").insert({
-                                    "user_id": u_id,
-                                    "title": "🚨 CAREGIVER ESCALATION CALL SENT!",
-                                    "message": f"Patient did not answer dose call for Compartment {compartment_num}. Emergency escalation call dispatched to Caregiver ({target_caregiver}).",
-                                    "type": "error",
-                                    "is_read": False
-                                }).execute()
-                        except Exception as ce:
-                            logger.error(f"Failed to place Caregiver Escalation Call: {ce}")
+                        logger.error(f"Twilio Voice Call Failed: {e}")
                 
-                # Run in background thread so MQTT loop is not blocked
+                # Run this in a background thread so we don't block the MQTT loop for 10 seconds!
                 threading.Thread(target=run_twilio_alert).start()
                 
             except Exception as e:
@@ -256,14 +171,19 @@ class MqttManager:
                     if comp_res.data:
                         comp_uuid = comp_res.data[0]["id"]
                 
-                supabase.table("sensor_events").insert({
-                    "event_id": event_id,
-                    "device_id": dev_uuid,
-                    "compartment_id": comp_uuid,
-                    "sensor_type": "IR" if "IR" in event_type else "SYSTEM",
-                    "event_type": event_type,
-                    "raw_value": data
-                }).execute()
+                try:
+                    safe_event_id = event_id or f"se_{int(time.time()*1000)}_{compartment_num or 1}"
+                    supabase.table("sensor_events").insert({
+                        "event_id": safe_event_id,
+                        "device_id": dev_uuid,
+                        "compartment_id": comp_uuid,
+                        "sensor_type": "IR" if "IR" in event_type else "SYSTEM",
+                        "event_type": event_type,
+                        "raw_value": data
+                    }).execute()
+                    logger.info(f"Logged sensor event {safe_event_id} for compartment {compartment_num}")
+                except Exception as se_err:
+                    logger.warning(f"Could not insert sensor_event: {se_err}")
                 
                 # Check if compartment is currently in MANUAL_OPEN mode
                 is_manual_open = False
