@@ -1,12 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from database import get_supabase
 from api.auth import get_current_user
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import json
 import requests
 import logging
 import os
 
 logger = logging.getLogger(__name__)
+
+IST = ZoneInfo("Asia/Kolkata")
+_daily_cache = {}
 
 router = APIRouter(prefix="/api/ai", tags=["AI"])
 
@@ -140,24 +145,42 @@ Return ONLY valid raw JSON.
 @router.get("/daily-insight")
 def get_daily_insight(user = Depends(get_current_user)):
     supabase = get_supabase()
+    today_str = datetime.now(IST).strftime("%Y-%m-%d")
+    cache_key = f"{user.id}_{today_str}"
     
-    # 1. First check if user already has saved daily insights in DB
+    # 1. Check in-memory daily cache first
+    if cache_key in _daily_cache:
+        return {"insight": _daily_cache[cache_key], "source": "daily_cache"}
+    
+    # 2. Check if user already has saved daily insights in DB for TODAY (day starting auto-refresh)
     try:
-        saved_res = supabase.table("ai_insights").select("*").eq("user_id", user.id).eq("insight_type", "DAILY").order("created_at", desc=True).limit(1).execute()
+        saved_res = supabase.table("ai_insights")\
+            .select("*")\
+            .eq("user_id", user.id)\
+            .eq("insight_type", "DAILY")\
+            .order("created_at", desc=True)\
+            .limit(5)\
+            .execute()
+            
         if saved_res.data:
-            latest = saved_res.data[0]
-            desc = latest.get("description", "")
-            if desc and desc.strip().startswith("{") and desc.strip().endswith("}"):
-                try:
-                    parsed = json.loads(desc)
-                    logger.info(f"Loaded existing AI insight from database for user {user.id}")
-                    return {"insight": parsed, "source": "database"}
-                except Exception as parse_err:
-                    logger.warning(f"Error parsing saved AI JSON from DB: {parse_err}")
+            for row in saved_res.data:
+                c_at = str(row.get("created_at", ""))
+                # If an insight already exists for today's date, return it immediately from DB
+                if c_at and c_at.startswith(today_str):
+                    desc = row.get("description", "")
+                    if desc and desc.strip().startswith("{") and desc.strip().endswith("}"):
+                        try:
+                            parsed = json.loads(desc)
+                            _daily_cache[cache_key] = parsed
+                            logger.info(f"Loaded today's ({today_str}) AI insight from database for user {user.id}")
+                            return {"insight": parsed, "source": "database"}
+                        except Exception as parse_err:
+                            logger.warning(f"Error parsing saved AI JSON from DB: {parse_err}")
     except Exception as e:
         logger.warning(f"Error querying saved ai_insights: {e}")
     
-    # 2. If no saved insight in DB, fetch data and generate
+    # 3. If no insight exists for today (new day started), fetch data and generate new daily guide
+    logger.info(f"Generating new daily AI insight for user {user.id} on date {today_str}...")
     meds_res = supabase.table("medicines").select("*, medicine_compartments(*, compartments(*))").eq("user_id", user.id).execute()
     meds = meds_res.data or []
     
@@ -187,7 +210,10 @@ def get_daily_insight(user = Depends(get_current_user)):
         ai_result["compliance_score"] = 0
         ai_result["patient_status"] = "NEW PATIENT"
     
-    # 3. Save into Supabase DB so it persists
+    # Cache today's insight in memory
+    _daily_cache[cache_key] = ai_result
+
+    # 4. Save into Supabase DB so it persists for today
     try:
         score = float(ai_result.get("compliance_score", 0)) / 100.0 if ai_result.get("compliance_score") is not None else 0.0
         supabase.table("ai_insights").insert({
@@ -197,8 +223,8 @@ def get_daily_insight(user = Depends(get_current_user)):
             "description": json.dumps(ai_result),
             "relevance_score": score
         }).execute()
-        logger.info(f"Saved generated AI insights for user {user.id} into database.")
+        logger.info(f"Saved today's ({today_str}) AI insight into database for user {user.id}")
     except Exception as e:
-        logger.error(f"Failed to persist AI insights to DB: {e}")
+        logger.warning(f"Note: Could not insert into ai_insights (grant permission in Supabase): {e}")
         
-    return {"insight": ai_result, "source": "database"}
+    return {"insight": ai_result, "source": "generated"}

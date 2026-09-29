@@ -112,7 +112,7 @@ async def run_ai_insights_for_all_users():
             logger.info(f"Generated ML insight for user {user_id}")
             
         except Exception as e:
-            logger.error(f"Error generating ML insight for user {user_id}: {e}")
+            logger.warning(f"Could not persist ML insight to DB (grant permissions in Supabase): {e}")
             
 async def ai_scheduler_loop():
     logger.info("Starting ML Insights Scheduler Loop (Runs every 1 hour, delayed by 1 min on boot)")

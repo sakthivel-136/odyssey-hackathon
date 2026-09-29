@@ -13,8 +13,7 @@ import {
   FileText,
   HeartPulse,
   Info,
-  Lightbulb,
-  RefreshCw
+  Lightbulb
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { CardSkeleton } from '@/components/ui/motion';
@@ -85,16 +84,13 @@ const DEFAULT_INSIGHT: AIInsightData = {
 export default function AIInsightsPage() {
   const [data, setData] = useState<AIInsightData>(DEFAULT_INSIGHT);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
-  async function fetchAIInsights(isManualRefresh = false) {
-    if (isManualRefresh) setRefreshing(true);
-    else setLoading(true);
+  async function fetchAIInsights() {
+    setLoading(true);
 
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       setLoading(false);
-      setRefreshing(false);
       return;
     }
 
@@ -231,14 +227,10 @@ export default function AIInsightsPage() {
           </h1>
           <p className="text-slate-500 mt-1 text-base">Real-world usage instructions, simple guidance, and clinical compliance analysis.</p>
         </div>
-        <button
-          onClick={() => fetchAIInsights(true)}
-          disabled={refreshing}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl transition border border-indigo-200/80 shadow-sm shrink-0 cursor-pointer disabled:opacity-60"
-        >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Analyzing...' : 'Refresh Guide'}
-        </button>
+        <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200/80 text-emerald-800 px-3.5 py-1.5 rounded-full text-xs font-bold shrink-0">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          Auto-Updated Today
+        </div>
       </motion.header>
 
       {/* Overview Card with Score Badge */}
