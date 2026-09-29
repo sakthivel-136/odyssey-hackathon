@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Activity, Clock, Plus, BrainCircuit, Box, FastForward, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Activity, Clock, Plus, Box, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
@@ -20,34 +20,15 @@ import {
 export default function DashboardPage() {
   const [device, setDevice] = useState<any>(null);
   const [schedules, setSchedules] = useState<any[]>([]);
-  const [insight, setInsight] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [adherenceRate, setAdherenceRate] = useState<number>(96);
-  
-  // Demo State
-  const [userEmail, setUserEmail] = useState<string>('');
-  const [simulatedTime, setSimulatedTime] = useState<string>('');
 
   useEffect(() => {
     async function loadData() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      setUserEmail(session.user.email || '');
       
-      // 1. Fetch AI Insight (Non-blocking)
-      (async () => {
-        try {
-          const aiRes = await fetch('/api/ai/daily-insight', {
-            headers: { 'Authorization': `Bearer ${session.access_token}` }
-          });
-          if (aiRes.ok) {
-            const aiData = await aiRes.json();
-            setInsight(aiData.insight);
-          }
-        } catch (e) {}
-      })();
-
-      // 2. Fetch Adherence Rate from Reports
+      // 1. Fetch Adherence Rate from Reports
       (async () => {
         try {
           const repRes = await fetch('/api/reports/adherence', {
@@ -62,7 +43,7 @@ export default function DashboardPage() {
         } catch (e) {}
       })();
 
-      // 3. Fetch Devices via API
+      // 2. Fetch Devices via API
       try {
         const devRes = await fetch('/api/devices', {
           headers: { 'Authorization': `Bearer ${session.access_token}` }
@@ -72,7 +53,7 @@ export default function DashboardPage() {
           if (devicesData && devicesData.length > 0) {
             setDevice(devicesData[0]);
             
-            // 4. Fetch Schedules
+            // 3. Fetch Schedules
             const schedRes = await fetch('/api/schedules', {
               headers: { 'Authorization': `Bearer ${session.access_token}` }
             });
@@ -96,8 +77,7 @@ export default function DashboardPage() {
     return <PageLoader message="Connecting to Smart Medibox..." />;
   }
 
-  const realTime = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
-  const currentTime = simulatedTime || realTime;
+  const currentTime = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
   
   let nextSchedule = null;
   for (const s of schedules) {
@@ -107,23 +87,6 @@ export default function DashboardPage() {
     }
   }
   if (!nextSchedule && schedules.length > 0) nextSchedule = schedules[0]; // Wrap around to tomorrow
-
-  const triggerDemo = async () => {
-    if (!device) return alert("No device found to trigger.");
-    try {
-      await fetch('/api/demo/trigger', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ device_id: device.device_id })
-      });
-      alert('Hardware alarm successfully triggered! The physical box should now dispense.');
-    } catch (e) {
-      console.error(e);
-      alert('Failed to trigger hardware.');
-    }
-  };
-
-  const isDemo = userEmail === 'demo@medibox.com';
 
   return (
     <motion.div 
@@ -147,65 +110,6 @@ export default function DashboardPage() {
           />
         </div>
       </motion.header>
-      
-      {/* 2. Demo Time Travel Simulator Panel */}
-      {isDemo && (
-        <motion.div 
-          variants={staggerItem}
-          className="bg-amber-50/90 backdrop-blur-md border-2 border-amber-300 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6"
-        >
-          <div>
-            <h3 className="font-black text-xl text-amber-900 flex items-center gap-2 mb-1">
-              <FastForward className="w-6 h-6 text-amber-600"/> Time Travel Simulator
-            </h3>
-            <p className="text-sm text-amber-800 font-medium">Use this panel during your demo pitch to fake the time and trigger the physical Medibox instantly!</p>
-          </div>
-          <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl border-2 border-amber-200 shadow-sm">
-              <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">Fake Time</span>
-              <input 
-                type="time" 
-                value={currentTime} 
-                onChange={(e) => setSimulatedTime(e.target.value)}
-                className="font-mono font-bold text-lg text-amber-900 bg-transparent outline-none"
-              />
-            </div>
-            <MotionButton 
-              variant="primary"
-              onClick={triggerDemo}
-              className="bg-amber-500 hover:bg-amber-600 text-white font-black uppercase tracking-wider shadow-md shadow-amber-500/20"
-            >
-              Trigger Hardware Now
-            </MotionButton>
-          </div>
-        </motion.div>
-      )}
-
-      {/* 3. AI Insight Banner */}
-      {insight && (
-        <motion.div 
-          variants={staggerItem}
-          whileHover={{ y: -2 }}
-          transition={SPRING_GENTLE}
-          className="bg-gradient-to-br from-indigo-900 via-blue-900 to-slate-900 rounded-3xl p-6 md:p-8 text-white shadow-xl shadow-blue-900/20 relative overflow-hidden border border-white/10"
-        >
-          <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-            <BrainCircuit className="w-56 h-56" />
-          </div>
-          <div className="relative z-10 max-w-2xl">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="bg-blue-500/30 text-blue-200 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 backdrop-blur-sm border border-blue-400/20">
-                <BrainCircuit className="w-4 h-4 text-blue-300" />
-                Gemini AI Health Insight
-              </span>
-            </div>
-            <h2 className="text-2xl md:text-3xl font-black mb-3 text-white leading-tight">{insight.title}</h2>
-            <div className="text-blue-100/90 text-base md:text-lg leading-relaxed whitespace-pre-wrap font-medium">
-              {insight.description}
-            </div>
-          </div>
-        </motion.div>
-      )}
 
       {/* 4. Hero Stats & Adherence Ring Grid */}
       <motion.div variants={staggerItem} className="grid grid-cols-1 md:grid-cols-3 gap-6">

@@ -65,10 +65,25 @@ export default function ControlCenterPage() {
   const handleOpenCompartment = async (comp: any) => {
     if (!confirm(`Are you sure you want to open Compartment ${comp.compartment_number}?`)) return;
     
-    // In a real implementation we would call a manual open endpoint.
-    // For now we will trigger a test command as a manual open proxy.
     const { data: { session } } = await supabase.auth.getSession();
     await fetch(`/api/compartments/test/servo`, {
+      method: 'POST',
+      headers: { 
+        'Authorization': `Bearer ${session?.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        device_id: selectedDevice,
+        compartment_number: comp.compartment_number
+      })
+    });
+  };
+
+  const handleCloseCompartment = async (comp: any) => {
+    if (!confirm(`Are you sure you want to close Compartment ${comp.compartment_number}?`)) return;
+    
+    const { data: { session } } = await supabase.auth.getSession();
+    await fetch(`/api/compartments/control/close`, {
       method: 'POST',
       headers: { 
         'Authorization': `Bearer ${session?.access_token}`,
@@ -122,7 +137,7 @@ export default function ControlCenterPage() {
             let stateColor = "bg-slate-100 text-slate-700";
             let stateBadge = "border-slate-200";
             
-            if (comp.current_state === 'OPEN') {
+            if (comp.current_state === 'OPEN' || comp.current_state === 'MANUAL_OPEN') {
               stateColor = "bg-emerald-100 text-emerald-700";
               stateBadge = "border-emerald-200 bg-emerald-50";
             } else if (comp.current_state === 'WAITING_FOR_INTERACTION') {
@@ -135,6 +150,8 @@ export default function ControlCenterPage() {
               stateColor = "bg-indigo-100 text-indigo-700 animate-pulse";
               stateBadge = "border-indigo-200 bg-indigo-50";
             }
+
+            const isOpen = comp.servo_status === 'OPEN' || comp.current_state === 'OPEN' || comp.current_state === 'MANUAL_OPEN';
 
             return (
               <div key={comp.id} className={`bg-white rounded-2xl p-6 border-2 transition-all ${stateBadge} shadow-sm`}>
@@ -162,14 +179,24 @@ export default function ControlCenterPage() {
                   </div>
                 </div>
 
-                <button 
-                  onClick={() => handleOpenCompartment(comp)}
-                  disabled={comp.current_state !== 'IDLE' && comp.current_state !== 'CLOSED'}
-                  className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white p-3 rounded-xl font-medium hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                >
-                  <Settings2 className="w-5 h-5" />
-                  OPEN COMPARTMENT {comp.compartment_number}
-                </button>
+                <div className="grid grid-cols-2 gap-3">
+                  <button 
+                    onClick={() => handleOpenCompartment(comp)}
+                    disabled={isOpen}
+                    className="flex items-center justify-center gap-1.5 bg-blue-600 text-white p-3 rounded-xl font-bold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition text-xs shadow-sm shadow-blue-500/20"
+                  >
+                    <Settings2 className="w-4 h-4" />
+                    OPEN {comp.compartment_number}
+                  </button>
+                  <button 
+                    onClick={() => handleCloseCompartment(comp)}
+                    disabled={!isOpen}
+                    className="flex items-center justify-center gap-1.5 bg-slate-900 text-white p-3 rounded-xl font-bold hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition text-xs shadow-sm"
+                  >
+                    <Settings2 className="w-4 h-4" />
+                    CLOSE {comp.compartment_number}
+                  </button>
+                </div>
               </div>
             )
           })}

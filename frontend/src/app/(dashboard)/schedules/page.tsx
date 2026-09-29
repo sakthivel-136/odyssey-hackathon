@@ -146,11 +146,6 @@ export default function SchedulesPage() {
         </button>
       </div>
 
-      {/* How it works callout */}
-      <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-6 text-sm text-blue-800">
-        <strong>How it works:</strong> Select a time and medicines. At schedule time, the Medibox opens <strong>Compartment 1</strong> first. After you take the pill and the IR sensor detects it, it automatically opens <strong>Compartment 2</strong>, and so on.
-      </div>
-
       {/* Schedules List */}
       {!schedules || schedules.length === 0 ? (
         <div className="text-center py-20 border-2 border-dashed border-slate-200 rounded-2xl">

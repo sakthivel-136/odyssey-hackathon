@@ -98,19 +98,54 @@ def test_servo(req: TestCommandReq, user = Depends(get_current_user)):
         "status": "PENDING"
     }).execute()
     
-        # Publish MQTT
+    # Publish MQTT
     mqtt_manager.publish_command(actual_device_id_str, {
         "command_id": cmd_id,
         "cmd": "OPEN_LID",
         "compartment_number": req.compartment_number
     })
     
-    # Update compartment status to OPEN so the frontend Realtime UI updates
+    # Update compartment status to OPEN & MANUAL_OPEN so it does NOT auto-close on IR trigger
     supabase.table("compartments").update({
-        "servo_status": "OPEN"
+        "servo_status": "OPEN",
+        "current_state": "MANUAL_OPEN"
     }).eq("device_id", req.device_id).eq("compartment_number", req.compartment_number).execute()
     
     return {"message": "Servo test command sent", "command_id": cmd_id}
+
+
+@router.post("/control/close")
+def control_close(req: TestCommandReq, user = Depends(get_current_user)):
+    supabase = get_supabase()
+    
+    dev_str_res = supabase.table("devices").select("device_id").eq("id", req.device_id).execute()
+    if not dev_str_res.data:
+        raise HTTPException(status_code=404, detail="Device not found")
+        
+    actual_device_id_str = dev_str_res.data[0]["device_id"]
+    
+    cmd_id = f"cmd_close_{int(time.time())}"
+    supabase.table("device_commands").insert({
+        "command_id": cmd_id,
+        "device_id": req.device_id,
+        "user_id": user.id,
+        "command_type": "MANUAL_CLOSE",
+        "status": "PENDING"
+    }).execute()
+    
+    mqtt_manager.publish_command(actual_device_id_str, {
+        "command_id": cmd_id,
+        "cmd": "CLOSE_LID",
+        "compartment_number": req.compartment_number
+    })
+    
+    # Update compartment status to CLOSED & IDLE
+    supabase.table("compartments").update({
+        "servo_status": "CLOSED",
+        "current_state": "IDLE"
+    }).eq("device_id", req.device_id).eq("compartment_number", req.compartment_number).execute()
+    
+    return {"message": "Compartment closed successfully", "command_id": cmd_id}
 
 
 @router.post("/test/ir")
@@ -205,5 +240,40 @@ def refill_close(req: RefillCloseReq, user = Depends(get_current_user)):
         "cmd": "CLOSE_LID",
         "compartment_number": req.compartment_number
     })
+
+    # Update compartment status in DB
+    supabase.table("compartments").update({
+        "servo_status": "CLOSED",
+        "current_state": "IDLE"
+    }).eq("device_id", req.device_id).eq("compartment_number", req.compartment_number).execute()
+
+    # Record refill in audit_logs table
+    try:
+        supabase.table("audit_logs").insert({
+            "user_id": user.id,
+            "device_id": req.device_id,
+            "action": "REFILL_COMPARTMENT",
+            "details": {
+                "compartment_number": req.compartment_number,
+                "medicine_id": req.medicine_id,
+                "new_stock_quantity": req.new_stock_quantity
+            }
+        }).execute()
+    except Exception as ae:
+        logger.warning(f"Could not record refill audit log: {ae}")
+
+    # Record confirmation in notifications table
+    try:
+        med_info = supabase.table("medicines").select("name").eq("id", req.medicine_id).execute()
+        med_name = med_info.data[0]["name"] if med_info.data else "Medication"
+        supabase.table("notifications").insert({
+            "user_id": user.id,
+            "title": "Hardware Refill Recorded",
+            "message": f"Compartment {req.compartment_number} ({med_name}) was refilled. Total stock is now {req.new_stock_quantity} tablets.",
+            "type": "REFILL",
+            "is_read": False
+        }).execute()
+    except Exception as ne:
+        logger.warning(f"Could not record refill notification: {ne}")
     
     return {"message": "Compartment closed and stock updated"}

@@ -141,6 +141,23 @@ Return ONLY valid raw JSON.
 def get_daily_insight(user = Depends(get_current_user)):
     supabase = get_supabase()
     
+    # 1. First check if user already has saved daily insights in DB
+    try:
+        saved_res = supabase.table("ai_insights").select("*").eq("user_id", user.id).eq("insight_type", "DAILY").order("created_at", desc=True).limit(1).execute()
+        if saved_res.data:
+            latest = saved_res.data[0]
+            desc = latest.get("description", "")
+            if desc and desc.strip().startswith("{") and desc.strip().endswith("}"):
+                try:
+                    parsed = json.loads(desc)
+                    logger.info(f"Loaded existing AI insight from database for user {user.id}")
+                    return {"insight": parsed, "source": "database"}
+                except Exception as parse_err:
+                    logger.warning(f"Error parsing saved AI JSON from DB: {parse_err}")
+    except Exception as e:
+        logger.warning(f"Error querying saved ai_insights: {e}")
+    
+    # 2. If no saved insight in DB, fetch data and generate
     meds_res = supabase.table("medicines").select("*, medicine_compartments(*, compartments(*))").eq("user_id", user.id).execute()
     meds = meds_res.data or []
     
@@ -163,4 +180,19 @@ def get_daily_insight(user = Depends(get_current_user)):
     }
     
     ai_result = generate_ai_insights_llm(user_data)
-    return {"insight": ai_result}
+    
+    # 3. Save into Supabase DB so it persists
+    try:
+        score = float(ai_result.get("compliance_score", 92)) / 100.0 if ai_result.get("compliance_score") else 0.92
+        supabase.table("ai_insights").insert({
+            "user_id": user.id,
+            "insight_type": "DAILY",
+            "title": ai_result.get("overview_title", "Daily Health & Medicine Guide"),
+            "description": json.dumps(ai_result),
+            "relevance_score": score
+        }).execute()
+        logger.info(f"Saved generated AI insights for user {user.id} into database.")
+    except Exception as e:
+        logger.error(f"Failed to persist AI insights to DB: {e}")
+        
+    return {"insight": ai_result, "source": "database"}

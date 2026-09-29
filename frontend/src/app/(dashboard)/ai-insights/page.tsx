@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { BrainCircuit, Sparkles, RefreshCw, AlertTriangle, CheckCircle2, Copy, Check, Clock, Pill, ShieldAlert, FileText, Info, Lightbulb, HeartPulse } from 'lucide-react';
+import { BrainCircuit, Sparkles, AlertTriangle, CheckCircle2, Clock, Pill, ShieldAlert, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-import { MotionButton, CardSkeleton, SPRING_SNAPPY, SPRING_GENTLE } from '@/components/ui/motion';
+import { CardSkeleton, SPRING_SNAPPY, SPRING_GENTLE } from '@/components/ui/motion';
 
 type MedicineGuide = {
   name: string;
@@ -34,8 +34,6 @@ type AIInsightData = {
 export default function AIInsightsPage() {
   const [data, setData] = useState<AIInsightData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   async function fetchAIInsights() {
     setLoading(true);
@@ -68,24 +66,6 @@ export default function AIInsightsPage() {
   useEffect(() => {
     fetchAIInsights();
   }, []);
-
-  const handleRegenerate = async () => {
-    setGenerating(true);
-    await fetchAIInsights();
-    setGenerating(false);
-  };
-
-  const handleCopyDoctorSummary = () => {
-    if (!data) return;
-    const textToCopy = `Smart Medibox Clinical Summary:\nScore: ${data.compliance_score}%\nStatus: ${data.patient_status}\n\nOverview:\n${data.overview_summary}\n\nTablet Guides:\n` +
-      (data.medicine_guides || []).map(m => `• ${m.name}: ${m.purpose} | How to take: ${m.how_to_take}`).join('\n') +
-      `\n\nKey Observations:\n` +
-      (data.points || []).map(p => `• [${p.title}]: ${p.detail}`).join('\n');
-      
-    navigator.clipboard.writeText(textToCopy);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   if (loading) {
     return (
@@ -148,7 +128,7 @@ export default function AIInsightsPage() {
       <motion.header 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="pb-6 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4"
+        className="pb-6 border-b border-slate-200"
       >
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
@@ -156,26 +136,6 @@ export default function AIInsightsPage() {
             AI Health & Medicine Guide
           </h1>
           <p className="text-slate-500 mt-1 text-base">Real-world usage instructions, simple guidance, and clinical compliance analysis.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <MotionButton
-            variant="secondary"
-            success={copied}
-            onClick={handleCopyDoctorSummary}
-            className="flex items-center gap-2 font-bold text-xs"
-          >
-            {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-            {copied ? 'Copied Brief' : 'Copy Doctor Brief'}
-          </MotionButton>
-          <MotionButton
-            variant="primary"
-            loading={generating}
-            onClick={handleRegenerate}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20"
-          >
-            <RefreshCw className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
-            Regenerate AI Analysis
-          </MotionButton>
         </div>
       </motion.header>
 
@@ -224,7 +184,7 @@ export default function AIInsightsPage() {
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Pill className="w-6 h-6 text-indigo-600" />
-            <h3 className="text-xl font-black text-slate-900">Real-World Tablet Usage Guides (Simple English)</h3>
+            <h3 className="text-xl font-black text-slate-900">Tablet Usage Guide</h3>
           </div>
 
           <div className="grid grid-cols-1 gap-6">

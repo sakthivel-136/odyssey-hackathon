@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Box, Plus, Settings2, Activity } from 'lucide-react';
+import { Box, Plus } from 'lucide-react';
 import Link from 'next/link';
 
 export default function DevicesPage() {
@@ -72,7 +72,7 @@ export default function DevicesPage() {
                   <span className="w-2 h-2 rounded-full bg-emerald-500"></span> ONLINE
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4 my-6">
+              <div className="grid grid-cols-2 gap-4 mt-6">
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                   <p className="text-xs text-slate-500 uppercase font-bold mb-1">Model</p>
                   <p className="font-medium text-slate-900">{dev.device_model}</p>
@@ -82,21 +82,6 @@ export default function DevicesPage() {
                   <p className="font-medium text-slate-900">v{dev.firmware_version}</p>
                 </div>
               </div>
-            </div>
-            
-            <div className="flex gap-3 mt-4">
-              <Link 
-                href={`/devices/${dev.id}/compartments`}
-                className="flex-1 bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-xl font-medium transition text-center flex items-center justify-center gap-2"
-              >
-                <Settings2 className="w-4 h-4" /> Setup
-              </Link>
-              <Link 
-                href="/control"
-                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl font-medium transition text-center flex items-center justify-center gap-2"
-              >
-                <Activity className="w-4 h-4" /> Live Status
-              </Link>
             </div>
           </div>
         ))}

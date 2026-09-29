@@ -20,7 +20,8 @@ export default function MedicinesPage() {
     strength: '',
     dosage_form: 'Tablet',
     stock_quantity: 60,
-    low_stock_threshold: 10
+    low_stock_threshold: 10,
+    compartment_id: ''
   });
 
   // Assign Compartment Modal
@@ -33,7 +34,7 @@ export default function MedicinesPage() {
   const [refillMed, setRefillMed] = useState<any>(null);
   const [refillComp, setRefillComp] = useState<any>(null);
   const [refillTimer, setRefillTimer] = useState<number>(60);
-  const [refillStockInput, setRefillStockInput] = useState<number>(60);
+  const [refillAddedInput, setRefillAddedInput] = useState<number>(20);
   const [refilling, setRefilling] = useState(false);
 
   useEffect(() => {
@@ -98,13 +99,38 @@ export default function MedicinesPage() {
 
   const handleCreateSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    await fetch('/api/medicines', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData)
-    });
+    try {
+      const res = await fetch('/api/medicines', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          strength: formData.strength,
+          dosage_form: formData.dosage_form,
+          stock_quantity: formData.stock_quantity,
+          low_stock_threshold: formData.low_stock_threshold
+        })
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const medId = json.medicine?.id || json.id;
+        if (medId && formData.compartment_id) {
+          await fetch('/api/compartments/assign', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              compartment_id: formData.compartment_id,
+              medicine_id: medId,
+              quantity: formData.stock_quantity || 60
+            })
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Error creating medicine:", e);
+    }
     setIsCreating(false);
-    setFormData({ name: '', strength: '', dosage_form: 'Tablet', stock_quantity: 60, low_stock_threshold: 10 });
+    setFormData({ name: '', strength: '', dosage_form: 'Tablet', stock_quantity: 60, low_stock_threshold: 10, compartment_id: '' });
     fetchData();
   };
 
@@ -148,7 +174,7 @@ export default function MedicinesPage() {
     setRefillMed(med);
     setRefillComp(assigned);
     setRefillTimer(60);
-    setRefillStockInput(60); // Default refill to full bottle 60
+    setRefillAddedInput(20); // Default tablets added today to 20
 
     // Send MQTT command to open lid
     try {
@@ -185,6 +211,10 @@ export default function MedicinesPage() {
     if (!refillMed || !refillComp || refilling) return;
     setRefilling(true);
 
+    const currentStock = Number(refillMed.stock_quantity) || 0;
+    const addedStock = Number(refillAddedInput) || 0;
+    const computedTotalStock = currentStock + addedStock;
+
     try {
       await fetch('/api/compartments/refill/close', {
         method: 'POST',
@@ -193,7 +223,7 @@ export default function MedicinesPage() {
           device_id: selectedDeviceId,
           compartment_number: refillComp.compartment_number,
           medicine_id: refillMed.id,
-          new_stock_quantity: Number(refillStockInput) || 60
+          new_stock_quantity: computedTotalStock
         })
       });
     } catch (e) {
@@ -388,15 +418,55 @@ export default function MedicinesPage() {
                 </p>
               </div>
 
-              {/* Set New Stock Input */}
-              <div className="text-left space-y-1.5 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                <label className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">New Total Stock Quantity</label>
-                <input
-                  type="number"
-                  value={refillStockInput}
-                  onChange={(e) => setRefillStockInput(Number(e.target.value))}
-                  className="w-full p-3 bg-white border border-slate-200 rounded-xl font-black text-slate-900 text-center text-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"
-                />
+              {/* Two-Column Refill Calculation: Left = Current Now, Right = Added Today */}
+              <div className="grid grid-cols-2 gap-3 text-left">
+                {/* Left Side: Current Stock */}
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col justify-between">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                    Tablets Now
+                  </span>
+                  <div className="my-2">
+                    <span className="text-3xl font-black text-slate-900">
+                      {refillMed.stock_quantity || 0}
+                    </span>
+                    <span className="text-xs text-slate-500 font-semibold ml-1">tablets</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">Current Count</p>
+                </div>
+
+                {/* Right Side: Added Today */}
+                <div className="bg-blue-50/80 p-4 rounded-2xl border-2 border-blue-200 flex flex-col justify-between">
+                  <label className="text-[11px] font-black uppercase tracking-wider text-blue-700">
+                    Added Today
+                  </label>
+                  <div className="my-1.5 flex items-center gap-1">
+                    <span className="text-xl font-black text-blue-600">+</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={refillAddedInput}
+                      onChange={(e) => setRefillAddedInput(Math.max(0, Number(e.target.value)))}
+                      className="w-full p-2 bg-white border border-blue-300 rounded-xl font-black text-blue-900 text-center text-xl outline-none focus:ring-2 focus:ring-blue-500/20 shadow-sm"
+                    />
+                  </div>
+                  <p className="text-[10px] text-blue-600 font-bold uppercase">Enter Added Pills</p>
+                </div>
+              </div>
+
+              {/* Live Computed Total Bar */}
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center justify-between text-left">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800">New Total Stock</span>
+                  <p className="text-xs text-emerald-700 font-medium">
+                    {refillMed.stock_quantity || 0} (now) + {refillAddedInput || 0} (added)
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-2xl font-black text-emerald-700">
+                    {(Number(refillMed.stock_quantity) || 0) + (Number(refillAddedInput) || 0)}
+                  </span>
+                  <span className="text-xs font-bold text-emerald-600 ml-1">tablets</span>
+                </div>
               </div>
 
               {/* Action Button */}
@@ -420,7 +490,7 @@ export default function MedicinesPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4"
+              className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
             >
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                 <h2 className="text-xl font-black text-slate-900">Add New Medicine</h2>
@@ -450,7 +520,7 @@ export default function MedicinesPage() {
                       placeholder="e.g., 500mg"
                       value={formData.strength}
                       onChange={(e) => setFormData({ ...formData, strength: e.target.value })}
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold"
                     />
                   </div>
                   <div>
@@ -478,9 +548,46 @@ export default function MedicinesPage() {
                   />
                 </div>
 
-                <div className="flex justify-end gap-3 pt-3">
+                {/* Direct Hardware Compartment Assignment in Form */}
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <label className="block text-xs font-extrabold text-slate-600 uppercase tracking-wider">
+                    Select Hardware Compartment (Where will you keep it?)
+                  </label>
+                  {(!compartments || compartments.length === 0) ? (
+                    <p className="text-xs text-slate-400 italic">No compartments found. Pair your Medibox device to assign.</p>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {compartments.map((comp) => {
+                        const occupiedBy = getCompartmentMedicineName(comp);
+                        const isSelected = formData.compartment_id === comp.id;
+                        return (
+                          <button
+                            type="button"
+                            key={comp.id}
+                            onClick={() => setFormData({ ...formData, compartment_id: comp.id })}
+                            className={`p-3 rounded-2xl border-2 text-left transition-all ${
+                              isSelected
+                                ? 'border-blue-600 bg-blue-50/80 shadow-sm'
+                                : 'border-slate-200 bg-slate-50/60 hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-black text-xs text-slate-900">Slot {comp.compartment_number}</span>
+                              {isSelected && <CheckCircle2 className="w-4 h-4 text-blue-600" />}
+                            </div>
+                            <p className="text-[10px] font-semibold text-slate-500 mt-1 truncate">
+                              {occupiedBy ? `Takes: ${occupiedBy}` : 'Empty / Ready'}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
                   <button type="button" onClick={() => setIsCreating(false)} className="px-5 py-2.5 rounded-xl font-bold text-slate-600 hover:bg-slate-100">Cancel</button>
-                  <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm">Save Medicine</button>
+                  <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-md shadow-blue-500/20">Save & Assign Medicine</button>
                 </div>
               </form>
             </motion.div>

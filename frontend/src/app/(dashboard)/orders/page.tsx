@@ -48,15 +48,21 @@ export default function OrdersPage() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     
-    // Check if box_name is already taken
-    const { data: existingBox } = await supabase
-      .from('orders')
-      .select('id')
-      .eq('box_name', formData.box_name)
-      .maybeSingle();
+    const trimmedBoxName = formData.box_name.trim();
+    if (!trimmedBoxName) {
+      alert("Please enter a Box Name.");
+      setSubmitting(false);
+      return;
+    }
 
-    if (existingBox) {
-      alert("This Box Name is already taken! Please choose a unique name (e.g., 'Medibox-Alpha-1').");
+    // Check if box_name is already taken in orders or devices table
+    const [{ data: existingOrder }, { data: existingDevice }] = await Promise.all([
+      supabase.from('orders').select('id').ilike('box_name', trimmedBoxName).maybeSingle(),
+      supabase.from('devices').select('id').ilike('device_name', trimmedBoxName).maybeSingle()
+    ]);
+
+    if (existingOrder || existingDevice) {
+      alert(`The box name "${trimmedBoxName}" already exists in the database. Please choose a unique name (e.g., '${trimmedBoxName}-02').`);
       setSubmitting(false);
       return;
     }
@@ -64,7 +70,7 @@ export default function OrdersPage() {
     const { error } = await supabase.from('orders').insert({
       user_id: session.user.id,
       customer_name: formData.customer_name,
-      box_name: formData.box_name,
+      box_name: trimmedBoxName,
       num_boxes: 1,
       num_containers: getContainersForPlan(selectedPlan),
       status: 'PENDING',

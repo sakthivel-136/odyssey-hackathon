@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, LayoutDashboard, Settings, Box, Bell, Pill, CalendarClock, PowerSquare, Wrench, Menu, X, CheckCircle, PackageOpen } from 'lucide-react';
+import { Activity, LayoutDashboard, Settings, Box, Bell, Pill, CalendarClock, PowerSquare, Wrench, Menu, X, CheckCircle, PackageOpen, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -34,6 +34,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userName, setUserName] = useState('Patient');
   const [loading, setLoading] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -44,6 +45,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         router.push('/login');
       } else {
         setIsAdmin(session.user.email === 'admin@medibox.com');
+        if (session.user.user_metadata?.full_name) {
+          setUserName(session.user.user_metadata.full_name);
+        } else if (session.user.email === 'demo@medibox.com' || session.user.email?.includes('demo')) {
+          setUserName('SAKTHI');
+        } else {
+          setUserName(session.user.email?.split('@')[0] || 'Patient');
+        }
       }
       setLoading(false);
     }
@@ -225,15 +233,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           })}
         </nav>
 
-        <div className="p-4 border-t border-slate-100">
+        <div className="p-4 border-t border-slate-100 space-y-2">
+          <div className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-slate-50 border border-slate-100">
+            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-black text-xs shadow-sm">
+              {userName.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-slate-900 truncate">{userName}</p>
+              <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">{isAdmin ? 'Admin' : 'Patient'}</p>
+            </div>
+          </div>
+
           <motion.button 
             whileTap={{ scale: 0.96 }}
             onClick={handleSignOut}
-            className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-slate-500 hover:bg-red-50 hover:text-red-600 font-medium transition-colors group cursor-pointer"
+            className="flex items-center gap-2 px-3 py-2 w-full rounded-xl text-slate-500 hover:bg-red-50 hover:text-red-600 font-bold text-xs transition-colors group cursor-pointer"
           >
-            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-red-100 transition-colors">
-              <span className="text-xs font-bold text-slate-500 group-hover:text-red-600">N</span>
-            </div>
+            <LogOut className="w-4 h-4 text-slate-400 group-hover:text-red-600" />
             Sign Out
           </motion.button>
         </div>

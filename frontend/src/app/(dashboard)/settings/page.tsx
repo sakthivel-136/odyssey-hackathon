@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Settings, User, BellRing, Shield, Smartphone, QrCode, Camera, CheckCircle2, AlertTriangle, Bell } from 'lucide-react';
+import { Settings, User, BellRing, Shield, Smartphone, QrCode, Camera, CheckCircle2, AlertTriangle, Bell, Download } from 'lucide-react';
 
 function DeviceQRViewer() {
-  const [qrBase64, setQrBase64] = useState<string | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [qrBase64, setQrBase64] = useState<string | null>(null);
 
   const fetchQR = async () => {
     setLoading(true);
@@ -29,20 +30,71 @@ function DeviceQRViewer() {
     }
   };
 
+  const handleDownloadPdf = async () => {
+    setDownloadingPdf(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setDownloadingPdf(false);
+      return;
+    }
+    try {
+      const devRes = await fetch('/api/devices', { headers: { 'Authorization': `Bearer ${session.access_token}` } });
+      const devs = await devRes.json();
+      if (devs.length > 0) {
+        const res = await fetch(`/api/devices/${devs[0].id}/qr-pdf`, {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        });
+        if (res.ok) {
+          const blob = await res.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `medibox-recovery-${devs[0].device_id || 'qr'}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+        } else {
+          alert("Could not generate recovery PDF. Please try again.");
+        }
+      } else {
+        alert("No device paired yet. Please pair a device first.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to download recovery PDF.");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   return (
-    <div>
-      {!qrBase64 ? (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
         <button 
-          onClick={fetchQR}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-600 hover:bg-purple-100 rounded-lg text-sm font-bold transition"
+          onClick={handleDownloadPdf}
+          disabled={downloadingPdf}
+          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition shadow-sm shadow-blue-500/20"
         >
-          <QrCode className="w-4 h-4" />
-          {loading ? 'Generating QR...' : 'Show Device Recovery QR'}
+          <Download className="w-4 h-4" />
+          {downloadingPdf ? 'Generating PDF...' : 'Download Device Recovery QR (PDF)'}
         </button>
-      ) : (
-        <div className="bg-white p-4 rounded-xl border border-slate-200 inline-block text-center space-y-2">
-          <img src={qrBase64} alt="Device QR Code" className="w-48 h-48 mx-auto border border-slate-100 rounded-lg" />
+
+        {!qrBase64 && (
+          <button 
+            onClick={fetchQR}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2.5 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-xl text-sm font-bold transition"
+          >
+            <QrCode className="w-4 h-4" />
+            {loading ? 'Loading Preview...' : 'Preview QR on Screen'}
+          </button>
+        )}
+      </div>
+
+      {qrBase64 && (
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 inline-block text-center space-y-3 shadow-sm">
+          <img src={qrBase64} alt="Device Recovery QR Code" className="w-48 h-48 mx-auto border border-slate-100 rounded-xl" />
           <p className="text-xs text-slate-500 font-bold">Medibox Hardware Pairing Token</p>
         </div>
       )}
@@ -52,18 +104,40 @@ function DeviceQRViewer() {
 
 export default function SettingsPage() {
   const [email, setEmail] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
   const [notifPermission, setNotifPermission] = useState<string>('default');
   const [cameraPermission, setCameraPermission] = useState<string>('default');
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setEmail(data.user.email || '');
+      if (data.user) {
+        setEmail(data.user.email || '');
+        if (data.user.user_metadata?.full_name) {
+          setFullName(data.user.user_metadata.full_name);
+        } else if (data.user.email === 'demo@medibox.com' || data.user.email?.includes('demo')) {
+          setFullName('SAKTHI');
+        }
+      }
     });
 
     if ('Notification' in window) {
       setNotifPermission(Notification.permission);
     }
   }, []);
+
+  const handleSaveProfile = async () => {
+    setSavingProfile(true);
+    const { error } = await supabase.auth.updateUser({
+      data: { full_name: fullName }
+    });
+    setSavingProfile(false);
+    if (error) {
+      alert("Error saving profile name: " + error.message);
+    } else {
+      alert("Profile name saved successfully!");
+    }
+  };
 
   const requestPushPermission = async () => {
     if (!('Notification' in window)) {
@@ -111,17 +185,47 @@ export default function SettingsPage() {
 
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
         
-        {/* Account */}
+        {/* Account Profile */}
         <div className="p-6 border-b border-slate-100 flex items-start gap-4">
           <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shrink-0">
             <User className="w-5 h-5" />
           </div>
-          <div className="flex-1">
-            <h3 className="font-bold text-slate-900 text-lg">Account Profile</h3>
-            <p className="text-sm text-slate-500 mt-0.5">Your registered Medibox patient account.</p>
-            <div className="mt-4">
-              <label className="block text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-2">Email Address</label>
-              <input type="text" readOnly value={email} className="w-full max-w-md p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium text-sm" />
+          <div className="flex-1 space-y-4">
+            <div>
+              <h3 className="font-bold text-slate-900 text-lg">Account Profile</h3>
+              <p className="text-sm text-slate-500 mt-0.5">Your registered Medibox patient account details.</p>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
+              <div>
+                <label className="block text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-2">Patient Full Name</label>
+                <input 
+                  type="text" 
+                  value={fullName} 
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="e.g. SAKTHI"
+                  className="w-full p-3 bg-white border border-slate-200 rounded-xl text-slate-900 font-bold text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none" 
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-2">Email Address</label>
+                <input 
+                  type="text" 
+                  readOnly 
+                  value={email} 
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 font-medium text-sm cursor-not-allowed" 
+                />
+              </div>
+            </div>
+
+            <div>
+              <button
+                onClick={handleSaveProfile}
+                disabled={savingProfile}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm"
+              >
+                {savingProfile ? 'Saving...' : 'Save Profile Name'}
+              </button>
             </div>
           </div>
         </div>

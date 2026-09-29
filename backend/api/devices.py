@@ -128,3 +128,110 @@ def reset_user_data(user = Depends(get_current_user)):
     
     # Note: We do NOT unpair the device here. The user requested unpair and reset to be separate.
     return {"message": "All user data reset successfully"}
+
+
+@router.get("/{device_id}/qr")
+def get_device_qr(device_id: str, user = Depends(get_current_user)):
+    supabase = get_supabase()
+    dev_res = supabase.table("devices").select("*").eq("id", device_id).execute()
+    if not dev_res.data:
+        raise HTTPException(status_code=404, detail="Device not found")
+    device = dev_res.data[0]
+    
+    pairing_payload = json.dumps({
+        "device_id": device["device_id"],
+        "token": device.get("pairing_token") or device["device_id"],
+        "name": device.get("device_name", "Smart Medibox")
+    })
+    
+    import qrcode
+    from io import BytesIO
+    import base64
+    
+    qr = qrcode.QRCode(box_size=10, border=2)
+    qr.add_data(pairing_payload)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    b64 = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+    
+    return {
+        "qr_code_base64": b64,
+        "device_id": device["device_id"],
+        "device_name": device.get("device_name", "Smart Medibox"),
+        "pairing_token": device.get("pairing_token")
+    }
+
+
+@router.get("/{device_id}/qr-pdf")
+def download_device_qr_pdf(device_id: str, user = Depends(get_current_user)):
+    from fastapi.responses import Response
+    import json
+    import qrcode
+    from io import BytesIO
+    from PIL import Image, ImageDraw
+    
+    supabase = get_supabase()
+    dev_res = supabase.table("devices").select("*").eq("id", device_id).execute()
+    if not dev_res.data:
+        raise HTTPException(status_code=404, detail="Device not found")
+    device = dev_res.data[0]
+    
+    pairing_payload = json.dumps({
+        "device_id": device["device_id"],
+        "token": device.get("pairing_token") or device["device_id"],
+        "name": device.get("device_name", "Smart Medibox")
+    })
+    
+    # 1. Generate clean high-resolution QR
+    qr = qrcode.QRCode(box_size=14, border=2)
+    qr.add_data(pairing_payload)
+    qr.make(fit=True)
+    qr_img = qr.make_image(fill_color="#0F172A", back_color="white").convert("RGB")
+    
+    # 2. Build single-page document (800x1100 px)
+    doc_w, doc_h = 800, 1100
+    canvas = Image.new("RGB", (doc_w, doc_h), "white")
+    draw = ImageDraw.Draw(canvas)
+    
+    # Header Banner
+    draw.rectangle([(0, 0), (doc_w, 140)], fill="#2563EB")
+    draw.text((50, 40), "SMART MEDIBOX", fill="white")
+    draw.text((50, 80), "Device Recovery & Pairing Certificate", fill="#BFDBFE")
+    
+    # Device Details Box
+    draw.rounded_rectangle([(50, 170), (doc_w - 50, 310)], radius=16, fill="#F8FAFC", outline="#E2E8F0", width=2)
+    draw.text((75, 195), f"Device Name: {device.get('device_name', 'Smart Medibox')}", fill="#0F172A")
+    draw.text((75, 230), f"Hardware ID: {device.get('device_id', 'Unknown')}", fill="#475569")
+    draw.text((75, 265), f"Pairing Token: {device.get('pairing_token', 'N/A')}", fill="#2563EB")
+    
+    # Centered QR Image
+    qr_w, qr_h = 440, 440
+    qr_resized = qr_img.resize((qr_w, qr_h))
+    qr_x = (doc_w - qr_w) // 2
+    qr_y = 350
+    draw.rounded_rectangle([(qr_x - 12, qr_y - 12), (qr_x + qr_w + 12, qr_y + qr_h + 12)], radius=16, fill="white", outline="#CBD5E1", width=2)
+    canvas.paste(qr_resized, (qr_x, qr_y))
+    
+    # Instructions at bottom
+    draw.text((doc_w // 2, 840), "Scan this QR code with the Smart Medibox application to pair or recover your unit.", fill="#334155", anchor="mm")
+    draw.text((doc_w // 2, 875), "Store this document safely. Do not share your pairing token with unauthorized users.", fill="#64748B", anchor="mm")
+    
+    # Footer
+    draw.line([(50, 950), (doc_w - 50, 950)], fill="#E2E8F0", width=1)
+    draw.text((doc_w // 2, 990), "Smart Medibox IoT Healthcare System • https://medibox.sakthi-dev.in", fill="#94A3B8", anchor="mm")
+    
+    buf = BytesIO()
+    canvas.save(buf, format="PDF", resolution=150.0)
+    pdf_bytes = buf.getvalue()
+    
+    safe_name = str(device.get("device_id", "medibox")).replace(" ", "_")
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=medibox-recovery-{safe_name}.pdf"
+        }
+    )
