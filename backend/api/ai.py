@@ -61,19 +61,19 @@ Output strictly in JSON format with this structure:
 Return ONLY valid raw JSON.
 """
 
-    # 1. Try Groq (openai/gpt-oss-120b)
+    # 1. Try Groq (fast sub-second model openai/gpt-oss-20b)
     try:
         url = "https://api.groq.com/openai/v1/chat/completions"
         headers = {"Authorization": f"Bearer {GROQ_KEY}", "Content-Type": "application/json"}
         payload = {
-            "model": "openai/gpt-oss-120b",
+            "model": "openai/gpt-oss-20b",
             "messages": [
                 {"role": "system", "content": "You are a clinical AI health assistant. Only output raw JSON."},
                 {"role": "user", "content": prompt}
             ],
             "response_format": {"type": "json_object"}
         }
-        r = requests.post(url, headers=headers, json=payload, timeout=8)
+        r = requests.post(url, headers=headers, json=payload, timeout=5)
         if r.status_code == 200:
             content = r.json()["choices"][0]["message"]["content"]
             return json.loads(content)
