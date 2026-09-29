@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Settings, User, BellRing, Shield, Smartphone, QrCode, Camera, CheckCircle2, AlertTriangle, Bell, Download } from 'lucide-react';
+import { Settings, User, BellRing, Shield, Smartphone, QrCode, Camera, CheckCircle2, AlertTriangle, Bell, Download, PhoneCall } from 'lucide-react';
 
 function DeviceQRViewer() {
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -105,11 +105,18 @@ function DeviceQRViewer() {
 export default function SettingsPage() {
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
+  const [patientPhone, setPatientPhone] = useState('+919150372420');
+  const [caregiverPhone, setCaregiverPhone] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
   const [notifPermission, setNotifPermission] = useState<string>('default');
   const [cameraPermission, setCameraPermission] = useState<string>('default');
 
   useEffect(() => {
+    const localPatientPhone = localStorage.getItem('patient_phone');
+    const localCaregiverPhone = localStorage.getItem('caregiver_phone');
+    if (localPatientPhone) setPatientPhone(localPatientPhone);
+    if (localCaregiverPhone) setCaregiverPhone(localCaregiverPhone);
+
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) {
         setEmail(data.user.email || '');
@@ -117,6 +124,12 @@ export default function SettingsPage() {
           setFullName(data.user.user_metadata.full_name);
         } else if (data.user.email === 'demo@medibox.com' || data.user.email?.includes('demo')) {
           setFullName('SAKTHI');
+        }
+        if (data.user.user_metadata?.patient_phone) {
+          setPatientPhone(data.user.user_metadata.patient_phone);
+        }
+        if (data.user.user_metadata?.caregiver_phone) {
+          setCaregiverPhone(data.user.user_metadata.caregiver_phone);
         }
       }
     });
@@ -128,14 +141,21 @@ export default function SettingsPage() {
 
   const handleSaveProfile = async () => {
     setSavingProfile(true);
+    if (patientPhone) localStorage.setItem('patient_phone', patientPhone.trim());
+    if (caregiverPhone) localStorage.setItem('caregiver_phone', caregiverPhone.trim());
+
     const { error } = await supabase.auth.updateUser({
-      data: { full_name: fullName }
+      data: { 
+        full_name: fullName.trim(),
+        patient_phone: patientPhone.trim(),
+        caregiver_phone: caregiverPhone.trim()
+      }
     });
     setSavingProfile(false);
     if (error) {
-      alert("Error saving profile name: " + error.message);
+      alert("Error saving settings: " + error.message);
     } else {
-      alert("Profile name saved successfully!");
+      alert("Settings and Emergency Numbers saved successfully!");
     }
   };
 
@@ -225,6 +245,76 @@ export default function SettingsPage() {
                 className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm"
               >
                 {savingProfile ? 'Saving...' : 'Save Profile Name'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Emergency Contacts & Caregiver Call Escalation */}
+        <div className="p-6 border-b border-slate-100 flex items-start gap-4">
+          <div className="w-10 h-10 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center shrink-0">
+            <PhoneCall className="w-5 h-5" />
+          </div>
+          <div className="flex-1 space-y-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-slate-900 text-lg">Emergency & Caregiver Call Escalation</h3>
+                <span className="bg-red-100 text-red-700 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full">
+                  Automated Escalation
+                </span>
+              </div>
+              <p className="text-sm text-slate-500 mt-0.5">
+                Configure patient phone and emergency caregiver number for missed dose alerts.
+              </p>
+            </div>
+
+            <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 text-xs font-semibold text-amber-800 space-y-1">
+              <p className="font-black text-amber-900 flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-amber-600" /> Automated Call Escalation Rule:
+              </p>
+              <p>
+                When a scheduled dose is missed, Medibox calls the <strong>Primary Patient Phone</strong> first.
+                If the patient does <strong>NOT attend / answer within 25 seconds</strong>, Twilio will immediately <strong>escalate and call your Caregiver Number</strong> with an urgent voice alert.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
+              <div>
+                <label className="block text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-2">
+                  Primary Patient Phone
+                </label>
+                <input 
+                  type="text" 
+                  value={patientPhone} 
+                  onChange={(e) => setPatientPhone(e.target.value)}
+                  placeholder="+919150372420"
+                  className="w-full p-3 bg-white border border-slate-200 rounded-xl text-slate-900 font-bold text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none" 
+                />
+                <p className="text-[11px] text-slate-400 font-medium mt-1">Called first upon missed dose.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-2">
+                  Caregiver Escalation Phone (Your Number)
+                </label>
+                <input 
+                  type="text" 
+                  value={caregiverPhone} 
+                  onChange={(e) => setCaregiverPhone(e.target.value)}
+                  placeholder="e.g. +91XXXXXXXXXX"
+                  className="w-full p-3 bg-white border border-red-200 rounded-xl text-slate-900 font-bold text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none" 
+                />
+                <p className="text-[11px] text-red-500 font-bold mt-1">Called automatically if patient doesn't answer.</p>
+              </div>
+            </div>
+
+            <div>
+              <button
+                onClick={handleSaveProfile}
+                disabled={savingProfile}
+                className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition shadow-sm shadow-red-500/20"
+              >
+                {savingProfile ? 'Saving...' : 'Save Emergency Numbers'}
               </button>
             </div>
           </div>
